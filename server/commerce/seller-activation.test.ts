@@ -2,14 +2,14 @@ import { describe, expect, it } from "vitest";
 import { decideSellerActivation } from "./seller-activation";
 
 describe("decideSellerActivation", () => {
-  it("activates a verified customer with no application or store", () => {
+  it("turns a new customer's click into a request for admin approval", () => {
     expect(decideSellerActivation({ role: "customer", applicationStatus: null, storeExists: false, storeActive: false }))
-      .toEqual({ kind: "activate" });
+      .toEqual({ kind: "request" });
   });
 
-  it("lets a customer convert a pending legacy application to direct activation", () => {
+  it("does not let a customer skip a pending request", () => {
     expect(decideSellerActivation({ role: "customer", applicationStatus: "pending", storeExists: false, storeActive: false }))
-      .toEqual({ kind: "activate" });
+      .toEqual({ kind: "already_requested" });
   });
 
   it("repairs an approved legacy customer role when its store is still active", () => {

@@ -276,17 +276,17 @@ function ContactDetail({ href, icon, title, copy, sub }: { href?: string; icon: 
 
 export function VendorPage() {
   const benefits = [
-    ["One-click activation", "Turn on seller access directly with your verified NaijaKoblas account."],
+    ["Simple request", "Request seller access from your NaijaKoblas account; an admin approves new sellers."],
     ["Optional store profile", "Choose your store name, city and description later from the seller workspace."],
     ["Reviewed listings", "Submit a listing and our team checks it, usually quickly. Approved listings go straight to the shop."],
     ["Paid-order visibility", "See your own order lines only after customer payment is verified."],
     ["Per-item fulfillment", "Move each paid line through processing, shipped and delivered states."],
     ["Your own dashboard", "Name your workspace, pick your colours and track listings, orders and sales in one place."],
   ];
-  const steps = [["Activate", "Sign in and open your seller workspace in one click"], ["List", "Add photos, price, sizes and stock"], ["Get approved", "Our team reviews each listing before it goes live"], ["Sell & ship", "Fulfil paid orders and add tracking"]];
+  const steps = [["Request", "Sign in and request seller access; an admin approves it"], ["List", "Add photos, price, sizes and stock"], ["Get approved", "Our team reviews each listing before it goes live"], ["Sell & ship", "Fulfil paid orders and add tracking"]];
   return <main>
-    <section className="vendor-hero container-wide"><div><Pill tone="lime">For Nigerian Artisans</Pill><h1>Start Selling.<br /><em>Right Away.</em></h1><p>Turn on your seller workspace with one click after signing in. List your products, and our team reviews each listing before it goes live, so shoppers can buy with confidence.</p><div className="hero-actions"><a className="button button--dark" href="#apply">Become a Seller <ArrowRight size={17} /></a><a className="button button--outline" href="#process">How It Works <ArrowDownRight size={17} /></a></div></div><div className="vendor-illustration"><div className="vendor-stat"><strong>Seller workspace</strong><span>Listings · Stock · Fulfillment</span></div><img src={products[2].image} alt="Leather artisan product" /></div></section>
-    <section className="vendor-stats"><div className="container-wide vendor-stats-grid"><div><strong>01</strong><span>Activate in one click</span></div><div><strong>02</strong><span>Listings reviewed for quality</span></div><div><strong>03</strong><span>Manage orders and sales</span></div></div></section>
+    <section className="vendor-hero container-wide"><div><Pill tone="lime">For Nigerian Artisans</Pill><h1>Start Selling.<br /><em>With Confidence.</em></h1><p>Request seller access after signing in. Once an admin approves you, list your products. Each listing is also reviewed before it goes live, so shoppers can buy with confidence.</p><div className="hero-actions"><a className="button button--dark" href="#apply">Become a Seller <ArrowRight size={17} /></a><a className="button button--outline" href="#process">How It Works <ArrowDownRight size={17} /></a></div></div><div className="vendor-illustration"><div className="vendor-stat"><strong>Seller workspace</strong><span>Listings · Stock · Fulfillment</span></div><img src={products[2].image} alt="Leather artisan product" /></div></section>
+    <section className="vendor-stats"><div className="container-wide vendor-stats-grid"><div><strong>01</strong><span>Request and get approved</span></div><div><strong>02</strong><span>Listings reviewed for quality</span></div><div><strong>03</strong><span>Manage orders and sales</span></div></div></section>
     <section className="section container-wide" id="process"><SectionHeading eyebrow="Seller tools" title="A clear marketplace workflow" /><div className="benefits-grid">{benefits.map(([title, copy], index) => <div className="benefit-card" key={title}><span>0{index + 1}</span><h3>{title}</h3><p>{copy}</p></div>)}</div></section>
     <section className="section section--dark" id="requirements"><div className="container-wide"><SectionHeading eyebrow="After activation" title="From your workspace to fulfillment" /><div className="process-grid">{steps.map(([title, copy], index) => <div className="process-item" key={title}><span>0{index + 1}</span><h3>{title}</h3><p>{copy}</p></div>)}</div></div></section>
     <VendorRequirements /><SellerActivationPanel />
@@ -296,7 +296,7 @@ export function VendorPage() {
 function VendorRequirements() {
   const requirements = [
     ["Verified account", "Sign in with your verified NaijaKoblas account"],
-    ["Instant workspace", "Seller access turns on immediately with one click"],
+    ["Approved sellers", "Every new seller is approved by an admin before their workspace opens"],
     ["Optional profile", "Store name, city and description can be added later"],
     ["Listing approval", "Each listing needs a clear photo, accurate details and admin approval before it is visible"],
     ["Store controls", "Staff can still pause accounts for marketplace safety"],
@@ -313,7 +313,7 @@ function SellerActivationPanel() {
     return <section className="vendor-application section" id="apply"><div className="container-wide vendor-application-grid"><div><span className="eyebrow">Seller access</span><h2>Preparing your<br /><em>workspace.</em></h2></div></div></section>;
   }
   if (!auth.data) {
-    return <section className="vendor-application section" id="apply"><div className="container-wide vendor-application-grid"><div><span className="eyebrow">Ready when you are</span><h2>Activate your<br /><em>seller space.</em></h2><p>Sign in or create a NaijaKoblas account first. After that, one click opens your seller workspace.</p></div><div className="vendor-auth-cta"><ShieldCheck size={24} /><strong>One account. More ways to participate.</strong><p>The same branded sign-in works for shopping, selling, staff and admin. Permissions remain server-controlled.</p><button className="button button--dark" type="button" onClick={() => startLogin("/vendor#apply")}>Sign in or create an account <ArrowRight size={17} /></button></div></div></section>;
+    return <section className="vendor-application section" id="apply"><div className="container-wide vendor-application-grid"><div><span className="eyebrow">Ready when you are</span><h2>Request your<br /><em>seller space.</em></h2><p>Sign in or create a NaijaKoblas account first, then send a seller request. You'll be notified when an admin approves it.</p></div><div className="vendor-auth-cta"><ShieldCheck size={24} /><strong>One account. More ways to participate.</strong><p>The same branded sign-in works for shopping, selling, staff and admin. Permissions remain server-controlled.</p><button className="button button--dark" type="button" onClick={() => startLogin("/vendor#apply")}>Sign in or create an account <ArrowRight size={17} /></button></div></div></section>;
   }
   if (account.error || !account.data) {
     return <section className="vendor-application section" id="apply"><div className="container-wide"><p className="portal-error">We could not confirm your account. Please refresh or sign in again.</p></div></section>;
@@ -332,7 +332,7 @@ function SellerActivationPanel() {
   return <section className="vendor-application section" id="apply">
     <div className="container-wide vendor-application-grid">
       <div>
-        <span className="eyebrow">{isTrustedStaff ? "Trusted account" : sellerModerationBlocked ? "Seller access restricted" : sellerRecordNeedsSupport ? "Seller record incomplete" : isActiveSeller ? "Seller access active" : "One-click activation"}</span>
+        <span className="eyebrow">{isTrustedStaff ? "Trusted account" : sellerModerationBlocked ? "Seller access restricted" : sellerRecordNeedsSupport ? "Seller record incomplete" : isActiveSeller ? "Seller access active" : sellerApplication?.status === "pending" ? "Request pending" : "Seller request"}</span>
         <h2>{isTrustedStaff
           ? <>Your trusted role<br /><em>is already active.</em></>
           : sellerModerationBlocked
@@ -350,7 +350,7 @@ function SellerActivationPanel() {
               ? "The seller account record is incomplete. Contact NaijaKoblas support before continuing."
               : isActiveSeller
                 ? "Your seller workspace is active. Continue to manage listings, stock and paid-order fulfillment."
-                : "Activate seller access instantly and complete your store profile whenever you like. Each listing is reviewed before it goes live."}</p>
+                : sellerApplication?.status === "pending" ? "Your request is waiting for an administrator. You'll get a notification when it's reviewed." : "Send a request to become a seller. Once an admin approves it, your seller workspace opens and you can start listing products."}</p>
       </div>
       <div className="vendor-auth-cta">
         <BadgeCheck size={24} />

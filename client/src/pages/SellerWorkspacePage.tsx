@@ -71,7 +71,8 @@ export function SellerWorkspacePage() {
   }
   if (!seller.data) return <WorkspaceMessage title="Seller access required" copy="Activate seller access from your account to open this workspace." />;
 
-  const data = seller.data;
+  // Older API versions don't return settings; fall back to defaults instead of crashing.
+  const data = { ...seller.data, settings: seller.data.settings ?? { dashboardName: null, accentColor: DEFAULT_ACCENT, theme: "dark" } };
   const refresh = (message?: string) => { void seller.refetch(); if (message) setNotice(message); };
   const path = location.split("?")[0];
   const active = sections.find(section => section.href === path) ?? sections[0]!;

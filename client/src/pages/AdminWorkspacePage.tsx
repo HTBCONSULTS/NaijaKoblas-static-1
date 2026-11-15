@@ -55,6 +55,7 @@ function AdminSectionShell({ children }: { children: ReactNode }) {
     || (item.href === "/admin/products" && (location.startsWith("/admin/catalog") || location.startsWith("/admin/products")))) ?? sections[0]!;
   const initials = (account.data?.name ?? account.data?.email ?? "Admin").trim().slice(0, 2).toUpperCase();
   const pendingApprovals = trpc.admin.listingReviews.pendingCount.useQuery(undefined, { retry: false, refetchInterval: 60_000 });
+  const sellerRequests = trpc.staff.sellerApplications.useQuery({ status: "pending" }, { retry: false, refetchInterval: 60_000 });
 
   return <div className="admin-workspace">
     <div className="admin-workspace-frame">
@@ -70,6 +71,7 @@ function AdminSectionShell({ children }: { children: ReactNode }) {
             return <Link key={href} href={href} className={selected ? "active" : ""} aria-current={selected ? "page" : undefined}>
               <Icon size={17} aria-hidden="true" /><span>{label}</span>
               {href === "/admin/approvals" && Boolean(pendingApprovals.data) && <b className="admin-nav-count" aria-label={`${pendingApprovals.data} waiting`}>{pendingApprovals.data}</b>}
+              {href === "/admin/sellers" && Boolean(sellerRequests.data?.length) && <b className="admin-nav-count" aria-label={`${sellerRequests.data!.length} seller requests`}>{sellerRequests.data!.length}</b>}
             </Link>;
           })}
         </nav>
@@ -162,28 +164,29 @@ function AdminApprovalsPage() {
 }
 
 function AdminSellersPage() {
-  const [status, setStatus] = useState<"approved" | "suspended" | "pending" | "rejected" | "all">("approved");
+  const utils = trpc.useUtils();
+  const [status, setStatus] = useState<"approved" | "suspended" | "pending" | "rejected" | "all">("pending");
   const sellers = trpc.staff.sellerApplications.useQuery(status === "all" ? undefined : { status }, { retry: false });
-  const review = trpc.staff.reviewSellerApplication.useMutation({ onSuccess: () => void sellers.refetch() });
+  const review = trpc.staff.reviewSellerApplication.useMutation({ onSuccess: () => { void sellers.refetch(); void utils.staff.sellerApplications.invalidate(); } });
   const act = (applicationId: number, next: "approved" | "rejected" | "suspended", verb: string) => {
     if (!window.confirm(`${verb} this seller?`)) return;
     review.mutate({ applicationId, status: next, reviewNote: `${verb} from the admin console.` });
   };
   return <section className="admin-workspace-section">
-    <div className="section-heading"><div><span className="eyebrow">Seller oversight</span><h2>Sellers</h2><p>Suspend a seller to hide their listings and pause their tools, and reinstate them once resolved. Suspended sellers can still fulfil orders that were already paid.</p></div></div>
-    <div className="admin-filter-bar"><label>Status<select value={status} onChange={event => setStatus(event.target.value as typeof status)}><option value="approved">Active</option><option value="suspended">Suspended</option><option value="pending">Pending (legacy)</option><option value="rejected">Rejected</option><option value="all">All</option></select></label></div>
+    <div className="section-heading"><div><span className="eyebrow">Seller oversight</span><h2>Sellers</h2><p>New seller requests wait here for your approval. Approving one opens that person's seller workspace. Suspend a seller to hide their listings and pause their tools; suspended sellers can still fulfil orders that were already paid.</p></div></div>
+    <div className="admin-filter-bar"><label>Status<select value={status} onChange={event => setStatus(event.target.value as typeof status)}><option value="pending">Requests</option><option value="approved">Active</option><option value="suspended">Suspended</option><option value="rejected">Rejected</option><option value="all">All</option></select></label></div>
     {review.error && <p className="admin-products-error" role="alert">{review.error.message}</p>}
     {sellers.isLoading ? <p className="portal-loading-copy">Loading sellers…</p>
       : sellers.error ? <p className="portal-error">Seller records are temporarily unavailable.</p>
       : sellers.data?.length ? <div className="portal-list">{sellers.data.map(({ application, applicant }) => <article className="portal-row" key={application.id}>
-        <div><span className={`status-label status-label--${application.status}`}>{application.status === "approved" ? "active" : application.status}</span><h3>{application.businessName}</h3><p>{applicant.email ?? application.email} · {application.city}</p>{application.reviewNote && <small>{application.reviewNote}</small>}</div>
+        <div><span className={`status-label status-label--${application.status}`}>{application.status === "approved" ? "active" : application.status === "pending" ? "requested" : application.status}</span><h3>{application.businessName}</h3><p>{applicant.email ?? application.email} · {application.city}</p>{application.reviewNote && <small>{application.reviewNote}</small>}</div>
         <div className="portal-row-actions">
           {application.status === "pending" && <><button className="button button--dark" disabled={review.isPending} onClick={() => act(application.id, "approved", "Approve")}><BadgeCheck size={15} /> Approve</button><button className="button button--outline" disabled={review.isPending} onClick={() => act(application.id, "rejected", "Decline")}>Decline</button></>}
           {application.status === "approved" && <button className="button button--outline admin-products-danger" disabled={review.isPending} onClick={() => act(application.id, "suspended", "Suspend")}>Suspend</button>}
           {application.status === "suspended" && <button className="button button--dark" disabled={review.isPending} onClick={() => act(application.id, "approved", "Reinstate")}>Reinstate</button>}
         </div>
       </article>)}</div>
-      : <AdminEmpty title="No sellers in this view" copy="Sellers appear here once customers activate seller access." />}
+      : <AdminEmpty title={status === "pending" ? "No pending requests" : "No sellers in this view"} copy={status === "pending" ? "New seller requests will appear here." : "Try another status filter."} />}
   </section>;
 }
 

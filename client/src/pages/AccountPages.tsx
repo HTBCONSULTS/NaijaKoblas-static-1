@@ -64,12 +64,12 @@ export function AccountPage() {
       : user.role === "staff" || user.role === "admin"
         ? "This trusted staff role cannot be changed through seller self-service."
         : applicationStatus === "pending"
-          ? "Your existing application is pending, but you can activate your seller workspace directly now."
+          ? "Your seller request is waiting for administrator approval."
           : activeSellerRole
-            ? "Your seller workspace is active. No application review is required."
+            ? "Your seller workspace is active."
             : user.role === "seller"
               ? "The seller account record is incomplete. Contact NaijaKoblas support before continuing."
-              : "Activate seller access directly; you can complete your store profile later.";
+              : "Request seller access; an administrator approves new sellers.";
 
   return <main><section className="portal-shell container-wide"><div className="portal-header"><div><span className="eyebrow">Your NaijaKoblas space</span><h1>Welcome{user.name ? `, ${user.name}` : " back"}.</h1><p>Manage your customer account and marketplace access from one secure sign-in.</p></div><span className={`role-badge role-badge--${user.role}`}>{roleLabels[user.role]}</span></div>
     <div className="portal-grid">

@@ -410,6 +410,48 @@ export async function activateSellerAccount(userId: number) {
     });
 
     if (plan.kind === "already_active") return { status: "already_active" as const, store: existingStore!, application };
+    if (plan.kind === "already_requested") return { status: "requested" as const, store: null, application };
+    if (plan.kind === "request") {
+      const storeName = defaultSelfServiceStoreName(account.name);
+      const inserted = await tx.insert(sellerApplications).values({
+        userId,
+        legalName: account.name?.trim().slice(0, 160) || "Not provided",
+        email: account.email,
+        businessName: storeName,
+        craftSummary: "Seller access requested from the storefront. Store details can be completed after approval.",
+        phone: "Not provided",
+        city: "Nigeria",
+        status: "pending",
+      }).returning();
+      const request = inserted[0];
+      if (!request) throw new Error("Seller request could not be saved.");
+      await tx.insert(accountAuditEvents).values({
+        actorUserId: userId,
+        targetUserId: userId,
+        eventType: "seller_access_requested",
+        metadata: { applicationId: request.id },
+      });
+      const reviewers = await tx.select({ id: users.id, role: users.role }).from(users).where(inArray(users.role, ["staff", "admin"]));
+      await tx.insert(userNotifications).values([
+        ...reviewers.map(reviewer => ({
+          recipientUserId: reviewer.id,
+          eventKey: notificationEventKey("seller-request", request.id, "reviewer"),
+          category: "seller_application",
+          title: "New seller request",
+          message: `${account.email} wants to sell on NaijaKoblas and is waiting for approval.`,
+          href: reviewer.role === "admin" ? "/admin/sellers" : "/staff",
+        })),
+        {
+          recipientUserId: userId,
+          eventKey: notificationEventKey("seller-request", request.id, "applicant"),
+          category: "seller_application",
+          title: "Seller request received",
+          message: "Your request is waiting for an administrator. You'll be notified as soon as it's reviewed.",
+          href: "/account",
+        },
+      ]).onConflictDoNothing();
+      return { status: "requested" as const, store: null, application: request };
+    }
     if (plan.kind === "blocked") {
       const message = plan.reason === "rejected_application"
         ? "Seller access was previously declined. Contact NaijaKoblas support if you believe this is an error."
