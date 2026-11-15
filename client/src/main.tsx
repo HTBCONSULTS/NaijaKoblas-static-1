@@ -11,6 +11,8 @@ import { BackendClerkStatus, clerkPublishableKey, resolveClientAuthReadiness } f
 import { AuthRuntimeContext, AuthRuntimeStatus } from "./_core/auth-runtime";
 import { safeAuthReturnTo, startLogin } from "./const";
 import "./index.css";
+import "./workspace.css";
+import "./storefront.css";
 
 const queryClient = new QueryClient();
 

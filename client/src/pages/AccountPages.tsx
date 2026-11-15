@@ -1,8 +1,7 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "wouter";
 import { ArrowRight, BadgeCheck, Clock3, PackageCheck, ShieldCheck, Store, UserRound, UsersRound } from "lucide-react";
 import { BecomeSellerButton } from "@/components/store/BecomeSellerButton";
-import { SellerProductCard } from "@/components/store/SellerProductCard";
 import { trpc } from "@/lib/trpc";
 import { money } from "@/store";
 import { useAuthRuntime } from "@/_core/auth-runtime";
@@ -81,56 +80,6 @@ export function AccountPage() {
     {portal && <div className="portal-callout"><ShieldCheck size={20} /><div><strong>{portal[0]} available</strong><span>Your current account role has access to a protected workspace.</span></div><Link href={portal[1]} className="button button--dark">{user.role === "seller" ? "Enter seller workspace" : user.role === "staff" ? "Enter staff workspace" : "Open private admin"} <ArrowRight size={16} /></Link></div>}
     {applicationStatus === "suspended" && <div className="portal-callout"><ShieldCheck size={20} /><div><strong>Existing paid orders still need fulfilment</strong><span>Seller tools are paused, but you can access and complete orders customers paid for before suspension.</span></div><Link href="/seller-fulfillment" className="button button--dark">Open fulfilment-only access <ArrowRight size={16} /></Link></div>}
     <section className="portal-section"><div className="section-heading"><div><span className="eyebrow">Customer orders</span><h2>Order history</h2></div></div>{orders.isLoading ? <p>Loading your private order history…</p> : orders.error ? <p className="portal-error">Order history is temporarily unavailable.</p> : orders.data?.length ? <div className="portal-list">{orders.data.map(order => <article className="portal-row" key={order.id}><div><span className={`status-label status-label--${order.status}`}>{order.status.replaceAll("_", " ")}</span><h2>{order.reference}</h2><p>{order.items.reduce((sum, item) => sum + item.quantity, 0)} items · {new Intl.DateTimeFormat("en-NG", { dateStyle: "medium" }).format(new Date(order.createdAt))}</p><small>{order.items.map(item => `${item.nameSnapshot} × ${item.quantity}`).join(" · ")}</small>{order.paymentStatus === "pending" && (safePaystackCheckoutUrl(order.checkoutUrl) ? <a className="text-link" href={safePaystackCheckoutUrl(order.checkoutUrl) ?? undefined} rel="noreferrer">Continue payment <ArrowRight size={15} /></a> : <p className="payment-provider-note">Payment setup is still pending. Do not place another order; contact support if this persists.</p>)}</div><strong>{money(order.totalKobo / 100)}</strong></article>)}</div> : <div className="portal-card portal-empty"><PackageCheck size={24} /><h3>No orders yet</h3><p>Once a payment is verified, your order and seller fulfilment updates will appear here.</p><Link href="/products" className="button button--dark">Browse the collection <ArrowRight size={16} /></Link></div>}</section>
-  </section></main>;
-}
-
-export function SellerDashboardPage() {
-  const seller = trpc.seller.dashboard.useQuery();
-  const [notice, setNotice] = useState<string | null>(null);
-  const [storeProfile, setStoreProfile] = useState({ displayName: "", city: "", description: "" });
-  const updateStoreProfile = trpc.seller.updateStoreProfile.useMutation({ onSuccess: () => { void seller.refetch(); setNotice("Store profile saved."); } });
-  const createProduct = trpc.seller.createProduct.useMutation({ onSuccess: () => { void seller.refetch(); } });
-  const updateFulfillment = trpc.seller.updateOrderItemFulfillment.useMutation({ onSuccess: () => { void seller.refetch(); } });
-  useEffect(() => {
-    const store = seller.data?.store;
-    if (store) setStoreProfile({ displayName: store.displayName, city: store.city, description: store.description ?? "" });
-  }, [seller.data?.store?.id, seller.data?.store?.updatedAt]);
-  if (seller.isLoading) return <LoadingPanel label="Loading your seller workspace…" />;
-  if (seller.error) return seller.error.data?.code === "FORBIDDEN" ? <AccessDenied title="Seller access required" copy="Activate seller access from your account. Previously rejected or suspended seller accounts must contact support for reinstatement." actionHref="/account" actionLabel="Go to my account" /> : <AccessDenied title="Seller workspace unavailable" copy="We could not load your seller data. Please retry after the database service is available." actionHref="/account" actionLabel="Go to my account" />;
-  if (!seller.data) return <AccessDenied title="Seller access required" copy="Activate seller access from your account to open this workspace." actionHref="/account" actionLabel="Go to my account" />;
-
-  const submitStoreProfile = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    updateStoreProfile.mutate(storeProfile);
-  };
-
-  const submitProduct = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const form = event.currentTarget;
-    const data = new FormData(form);
-    const sizes = String(data.get("sizes") ?? "").split(",").map(size => size.trim()).filter(Boolean);
-    createProduct.mutate({
-      name: String(data.get("name") ?? "").trim(),
-      description: String(data.get("description") ?? "").trim(),
-      category: String(data.get("category") ?? "Accessories").trim(),
-      priceNaira: Number(data.get("priceNaira")),
-      sizes,
-      inventoryCount: Number(data.get("inventoryCount")),
-    }, { onSuccess: () => { form.reset(); setNotice("Draft listing created. Publish it when details and stock are ready."); } });
-  };
-
-  return <main><section className="portal-shell container-wide"><div className="portal-header"><div><span className="eyebrow">Seller workspace</span><h1>{seller.data.store?.displayName ?? seller.data.application?.businessName ?? "Your craft business"}</h1><p>Manage seller-owned products, stock and order-line fulfilment. Payments currently settle to the marketplace Paystack account; vendor payouts are not enabled.</p></div><span className="role-badge role-badge--seller">Active seller</span></div>
-    <div className="portal-grid"><article className="portal-card"><Store size={22} /><span>Store status</span><strong>{seller.data.store?.isActive ? "Active" : "Not active"}</strong><p>{seller.data.store?.isActive ? "Seller access is active; complete the optional store profile whenever you are ready." : "Contact NaijaKoblas support about this inactive store."}</p></article><article className="portal-card"><PackageCheck size={22} /><span>Products</span><strong>{seller.data.products.length}</strong><p>Draft listings stay private until published.</p></article><article className="portal-card"><UsersRound size={22} /><span>Account</span><strong>{seller.data.user.email ?? seller.data.user.name ?? "Seller"}</strong><Link href="/account" className="text-link">Switch to customer account <ArrowRight size={15} /></Link></article></div>
-    <section className="portal-section"><div className="section-heading"><div><span className="eyebrow">Optional setup</span><h2>Store profile</h2></div></div><form className="portal-card seller-product-form seller-profile-form" onSubmit={submitStoreProfile}><p>Your seller workspace is already active. Add or update these public store details whenever you choose.</p><div className="form-grid"><label className="form-field"><span>STORE NAME</span><input value={storeProfile.displayName} minLength={2} maxLength={160} required onChange={event => setStoreProfile(current => ({ ...current, displayName: event.target.value }))} /></label><label className="form-field"><span>CITY</span><input value={storeProfile.city} minLength={2} maxLength={100} required onChange={event => setStoreProfile(current => ({ ...current, city: event.target.value }))} /></label><label className="form-field form-field--wide"><span>DESCRIPTION (OPTIONAL)</span><textarea value={storeProfile.description} maxLength={1_000} rows={3} onChange={event => setStoreProfile(current => ({ ...current, description: event.target.value }))} /></label></div><button className="button button--outline" type="submit" disabled={updateStoreProfile.isPending}>{updateStoreProfile.isPending ? "Saving…" : "Save store profile"}<ArrowRight size={16} /></button>{updateStoreProfile.error && <p className="portal-error">{updateStoreProfile.error.message}</p>}</form></section>
-    <section className="portal-section"><div className="section-heading"><div><span className="eyebrow">Seller-owned catalog</span><h2>Products and inventory</h2></div></div><form className="portal-card seller-product-form" onSubmit={submitProduct}><h3>Create a draft listing</h3><div className="form-grid"><label className="form-field"><span>PRODUCT NAME</span><input name="name" minLength={2} maxLength={180} required /></label><label className="form-field"><span>CATEGORY</span><input name="category" defaultValue="Accessories" required /></label><label className="form-field"><span>PRICE (NGN)</span><input name="priceNaira" type="number" min="1" max="21000000" step="1" required /></label><label className="form-field"><span>AVAILABLE STOCK</span><input name="inventoryCount" type="number" min="0" max="1000000" step="1" required /></label><label className="form-field form-field--wide"><span>DESCRIPTION</span><textarea name="description" minLength={20} maxLength={5000} rows={3} required /></label><label className="form-field form-field--wide"><span>SIZES / STYLES (comma-separated)</span><input name="sizes" placeholder="One Size, M, L" required /></label></div><button className="button button--dark" type="submit" disabled={createProduct.isPending}>{createProduct.isPending ? "Saving…" : "Create draft listing"}<ArrowRight size={16} /></button>{createProduct.error && <p className="portal-error">{createProduct.error.message}</p>}</form>
-      {seller.data.products.length ? <div className="seller-product-list">{seller.data.products.map(product => <SellerProductCard key={product.id} product={product} storeActive={Boolean(seller.data.store?.isActive)} onChanged={message => { void seller.refetch(); if (message) setNotice(message); }} />)}</div> : <div className="portal-card portal-empty"><PackageCheck size={24} /><h3>No listings yet</h3><p>Create your first draft above, then use the guided photo step to prepare it for publishing.</p></div>}
-    </section>
-    <section className="portal-section"><div className="section-heading"><div><span className="eyebrow">Paid orders only</span><h2>Order fulfilment</h2></div></div>{seller.data.orders.length ? <div className="portal-list">{seller.data.orders.map(({ order, item }) => {
-      const next = item.fulfillmentStatus === "unfulfilled" ? "processing" : item.fulfillmentStatus === "processing" ? "shipped" : item.fulfillmentStatus === "shipped" ? "fulfilled" : null;
-      const label = next === "processing" ? "Start processing" : next === "shipped" ? "Mark as shipped" : next === "fulfilled" ? "Mark delivered" : "Fulfilled";
-      return <article className="portal-row seller-order-row" key={item.id}><div><span className={`status-label status-label--${item.fulfillmentStatus}`}>{item.fulfillmentStatus.replaceAll("_", " ")}</span><h3>{item.nameSnapshot} × {item.quantity}</h3><p>Order {order.reference} · {item.size} · {order.deliveryMethod} · {money(item.lineTotalKobo / 100)}</p><p>Ship to {order.firstName} {order.lastName}, {order.address}, {order.city} · <a href={`tel:${order.phone}`}>{order.phone}</a></p>{item.trackingNumber && <small>{item.carrier ?? "Carrier"}: {item.trackingNumber}</small>}</div><div className="portal-row-actions">{next && <form onSubmit={event => { event.preventDefault(); const data = new FormData(event.currentTarget); updateFulfillment.mutate({ orderItemId: item.id, status: next, carrier: String(data.get("carrier") ?? "").trim() || undefined, trackingNumber: String(data.get("trackingNumber") ?? "").trim() || undefined }); }}><input name="carrier" aria-label="Carrier" placeholder="Carrier (optional)" defaultValue={item.carrier ?? ""} /><input name="trackingNumber" aria-label="Tracking number" placeholder="Tracking number" defaultValue={item.trackingNumber ?? ""} /><button className="button button--dark" type="submit" disabled={updateFulfillment.isPending}>{label}</button></form>}</div></article>;
-    })}</div> : <div className="portal-card portal-empty"><Clock3 size={24} /><h3>No paid orders assigned</h3><p>Order lines belonging to your store appear here after customer payment is verified.</p></div>}</section>
-    {(notice || createProduct.error || updateFulfillment.error) && <p className={createProduct.error || updateFulfillment.error ? "portal-error" : "form-success"}>{createProduct.error?.message ?? updateFulfillment.error?.message ?? notice}</p>}
   </section></main>;
 }
 
