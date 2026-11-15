@@ -10,7 +10,7 @@ import * as db from "./db";
 import { initializePaystackCheckout, verifyPaystackTransaction } from "./payments/paystack";
 import { classifyPaystackTransaction } from "./payments/reconciliation";
 import { productStatuses } from "../drizzle/schema";
-import { adminProductManagementRouter } from "./admin/products";
+import { adminListingReviewRouter, adminProductManagementRouter } from "./admin/products";
 import { adminOperationsRouter } from "./admin/operations";
 import { adminSubmissionsRouter, publicSubmissionsRouter } from "./publicSubmissions";
 
@@ -210,13 +210,19 @@ export const appRouter = router({
   seller: router({
     dashboard: sellerProcedure.query(async ({ ctx }) => {
       const application = await db.getSellerApplicationByUserId(ctx.user.id);
-      const [store, products, orders] = await Promise.all([
+      const [store, products, orders, settings] = await Promise.all([
         db.getSellerStoreByUserId(ctx.user.id),
         db.listSellerProducts(ctx.user.id),
         db.listOrdersForSeller(ctx.user.id),
+        db.getSellerDashboardSettings(ctx.user.id),
       ]);
-      return { user: publicAccount(ctx.user), application, store, products, orders };
+      return { user: publicAccount(ctx.user), application, store, products, orders, settings };
     }),
+    updateDashboardSettings: sellerProcedure.input(z.object({
+      dashboardName: z.string().trim().max(60).nullable(),
+      accentColor: z.string().trim().toLowerCase().regex(/^#[0-9a-f]{6}$/, "Choose a valid colour."),
+      theme: z.enum(["light", "dark"]),
+    })).mutation(({ ctx, input }) => db.saveSellerDashboardSettings(ctx.user.id, { ...input, dashboardName: input.dashboardName || null })),
     updateStoreProfile: sellerProcedure.input(z.object({
       displayName: z.string().trim().min(2).max(160),
       city: z.string().trim().min(2).max(100),
@@ -333,6 +339,7 @@ export const appRouter = router({
 
   admin: router({
     productManagement: adminProductManagementRouter,
+    listingReviews: adminListingReviewRouter,
     operations: adminOperationsRouter,
     submissions: adminSubmissionsRouter,
     users: adminProcedure.query(() => db.listUsersForAdmin()),

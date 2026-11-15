@@ -36,6 +36,7 @@ function Router() {
     <Route path="/waitlist" component={WaitlistPage} />
     <Route path="/account" component={AccountPage} />
     <Route path="/seller-fulfillment" component={SuspendedSellerFulfillmentPage} />
+    <Route path="/seller/:section" component={SellerWorkspacePage} />
     <Route path="/seller" component={SellerWorkspacePage} />
     <Route path="/staff" component={StaffWorkspacePage} />
     <Route path="/admin/:section" component={AdminRoute} />
@@ -44,7 +45,9 @@ function Router() {
     <Route path="/404" component={NotFound} />
     <Route component={NotFound} />
   </Switch>;
-  return location === "/admin" || location.startsWith("/admin/") ? routes : <StoreShell>{routes}</StoreShell>;
+  // Admin and seller workspaces have their own full-screen chrome instead of the storefront header/footer.
+  const isWorkspace = /^\/(admin|seller)(\/|$)/.test(location);
+  return isWorkspace ? routes : <StoreShell>{routes}</StoreShell>;
 }
 
 export default function App() {

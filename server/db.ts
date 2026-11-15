@@ -10,6 +10,8 @@ import {
   orderItems,
   paymentTransactions,
   sellerProductImages,
+  sellerProductReviews,
+  sellerDashboardSettings,
   sellerApplications,
   sellerProducts,
   sellerStores,
@@ -29,6 +31,7 @@ import { checkoutFingerprint } from "./commerce/idempotency";
 import { calculateCheckoutAmounts } from "./commerce/pricing";
 import { hasPrimaryProductImage, MAX_PRODUCT_IMAGES_PER_LISTING } from "./commerce/product-upload";
 import { notificationEventKey } from "./commerce/notifications";
+import { changesReviewedContent, nextReviewStatus } from "./commerce/listing-review";
 
 function hasPostgresConstraint(error: unknown, constraint: string, seen = new Set<object>()): boolean {
   if (!error || typeof error !== "object" || seen.has(error)) return false;
@@ -68,6 +71,35 @@ async function requireDb() {
   const database = await getDb();
   if (!database) throw new Error("Database is not available");
   return database;
+}
+
+type Db = Awaited<ReturnType<typeof requireDb>>;
+type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
+
+async function getListingReviewStatus(tx: Tx, productId: string) {
+  const rows = await tx.select({ status: sellerProductReviews.status }).from(sellerProductReviews)
+    .where(eq(sellerProductReviews.productId, productId)).limit(1).for("update");
+  return rows[0]?.status ?? null;
+}
+
+/** Puts a listing (back) in the admin approval queue and tells every administrator. */
+async function queueListingForReview(tx: Tx, productId: string, productName: string) {
+  const now = new Date();
+  await tx.insert(sellerProductReviews).values({ productId, status: "pending", submittedAt: now })
+    .onConflictDoUpdate({
+      target: sellerProductReviews.productId,
+      set: { status: "pending", note: null, reviewedByUserId: null, reviewedAt: null, submittedAt: now },
+    });
+  const admins = await tx.select({ id: users.id }).from(users).where(eq(users.role, "admin"));
+  if (!admins.length) return;
+  await tx.insert(userNotifications).values(admins.map(admin => ({
+    recipientUserId: admin.id,
+    eventKey: notificationEventKey("listing-review", productId, now.getTime()),
+    category: "listing",
+    title: "A listing is waiting for approval",
+    message: `“${productName.slice(0, 120)}” was submitted by a seller and needs review before it goes live.`,
+    href: "/admin/approvals",
+  }))).onConflictDoNothing();
 }
 
 function redactAuditMetadata(value: Record<string, unknown> | null): Record<string, unknown> | null {
@@ -723,10 +755,30 @@ async function listGalleryImages(database: Database, productIds: string[]) {
 
 export async function listSellerProducts(sellerUserId: number) {
   const database = await requireDb();
-  const products = await database.select().from(sellerProducts).where(eq(sellerProducts.sellerUserId, sellerUserId))
+  const rows = await database.select({ product: sellerProducts, review: sellerProductReviews }).from(sellerProducts)
+    .leftJoin(sellerProductReviews, eq(sellerProductReviews.productId, sellerProducts.id))
+    .where(eq(sellerProducts.sellerUserId, sellerUserId))
     .orderBy(desc(sellerProducts.updatedAt)).limit(100);
-  const gallery = await listGalleryImages(database, products.map(product => product.id));
-  return products.map(product => ({ ...product, images: gallery.get(product.id) ?? [] }));
+  const gallery = await listGalleryImages(database, rows.map(row => row.product.id));
+  return rows.map(({ product, review }) => ({
+    ...product,
+    images: gallery.get(product.id) ?? [],
+    review: review ? { status: review.status, note: review.note, reviewedAt: review.reviewedAt, submittedAt: review.submittedAt } : null,
+  }));
+}
+
+export async function getSellerDashboardSettings(userId: number) {
+  const database = await requireDb();
+  const rows = await database.select().from(sellerDashboardSettings).where(eq(sellerDashboardSettings.userId, userId)).limit(1);
+  return rows[0] ?? { userId, dashboardName: null, accentColor: "#22a35a", theme: "dark", updatedAt: null };
+}
+
+export async function saveSellerDashboardSettings(userId: number, input: { dashboardName: string | null; accentColor: string; theme: "light" | "dark" }) {
+  const database = await requireDb();
+  const now = new Date();
+  const rows = await database.insert(sellerDashboardSettings).values({ userId, ...input, updatedAt: now })
+    .onConflictDoUpdate({ target: sellerDashboardSettings.userId, set: { ...input, updatedAt: now } }).returning();
+  return rows[0]!;
 }
 
 export async function createSellerProduct(sellerUserId: number, input: SellerProductInput) {
@@ -897,6 +949,9 @@ export async function addSellerProductImages(input: {
       await tx.update(sellerProducts).set({ imageUrl: inserted[0].url, updatedAt: now })
         .where(and(eq(sellerProducts.id, input.productId), eq(sellerProducts.sellerUserId, input.sellerUserId)));
     }
+    if (actor?.role !== "admin" && await getListingReviewStatus(tx, input.productId) === "approved") {
+      await queueListingForReview(tx, input.productId, product.name);
+    }
     if (input.actorUserId !== input.sellerUserId) {
       await tx.insert(accountAuditEvents).values({
         actorUserId: input.actorUserId,
@@ -936,10 +991,12 @@ export async function setSellerProductPrimaryImage(input: { sellerUserId: number
       eq(sellerProductImages.id, input.imageId),
       eq(sellerProductImages.productId, input.productId),
     ));
-    await tx.update(sellerProducts).set({ imageUrl: image.url, updatedAt: new Date() }).where(and(
+    const renamed = await tx.update(sellerProducts).set({ imageUrl: image.url, updatedAt: new Date() }).where(and(
       eq(sellerProducts.id, input.productId),
       eq(sellerProducts.sellerUserId, input.sellerUserId),
-    ));
+    )).returning({ name: sellerProducts.name });
+    // The cover photo is customer-facing content, so a live listing goes back for approval.
+    if (await getListingReviewStatus(tx, input.productId) === "approved") await queueListingForReview(tx, input.productId, renamed[0]?.name ?? "Listing");
     return { ...image, isPrimary: true };
   });
 }
@@ -992,7 +1049,16 @@ export async function updateSellerProduct(input: {
       eq(sellerProducts.id, input.productId),
       eq(sellerProducts.sellerUserId, input.sellerUserId),
     )).returning();
-    return result[0];
+    const updated = result[0];
+    if (updated) {
+      const review = nextReviewStatus({
+        current: await getListingReviewStatus(tx, updated.id),
+        publishing: input.changes.status === "published",
+        contentChanged: changesReviewedContent(input.changes),
+      });
+      if (review === "pending") await queueListingForReview(tx, updated.id, updated.name);
+    }
+    return updated;
   });
 }
 
@@ -1011,8 +1077,10 @@ export async function listPublicSellerProducts() {
     city: sellerStores.city,
   })
     .from(sellerProducts).innerJoin(sellerStores, eq(sellerProducts.sellerUserId, sellerStores.userId))
+    .innerJoin(sellerProductReviews, eq(sellerProductReviews.productId, sellerProducts.id))
     .where(and(
       eq(sellerProducts.status, "published"),
+      eq(sellerProductReviews.status, "approved"),
       gte(sellerProducts.inventoryCount, 1),
       eq(sellerStores.isActive, true),
     )).orderBy(desc(sellerProducts.createdAt)).limit(200);
@@ -1052,7 +1120,11 @@ export async function createPendingOrder(customerUserId: number, input: CreateOr
     return await database.transaction(async tx => {
     const catalogRows = await tx.select().from(sellerProducts)
       .where(inArray(sellerProducts.id, productIds)).for("update");
-    const productsById = new Map(catalogRows.map(product => [product.id, product]));
+    const approvedRows = await tx.select({ productId: sellerProductReviews.productId }).from(sellerProductReviews)
+      .where(and(inArray(sellerProductReviews.productId, productIds), eq(sellerProductReviews.status, "approved"))).for("share");
+    const approvedIds = new Set(approvedRows.map(row => row.productId));
+    // Unapproved listings are treated exactly like missing ones, so a guessed product ID cannot be bought.
+    const productsById = new Map(catalogRows.filter(product => approvedIds.has(product.id)).map(product => [product.id, product]));
     const storeRows = await tx.select().from(sellerStores)
       .where(inArray(sellerStores.userId, [...new Set(catalogRows.map(product => product.sellerUserId))])).for("update");
     const storesByOwner = new Map(storeRows.map(store => [store.userId, store]));

@@ -7,6 +7,7 @@ import {
   orders,
   sellerApplications,
   sellerProductImages,
+  sellerProductReviews,
   sellerProducts,
   sellerStores,
   userNotifications,
@@ -245,18 +246,20 @@ async function listProducts(database: Database, input: z.output<typeof adminProd
       product: sellerProducts,
       seller: { id: users.id, name: users.name, email: users.email },
       store: { id: sellerStores.id, displayName: sellerStores.displayName, city: sellerStores.city, isActive: sellerStores.isActive },
+      reviewStatus: sellerProductReviews.status,
       imageCount: sql<number>`(select count(*)::int from ${sellerProductImages} as spi where spi."productId" = ${sellerProducts.id})`,
       primaryImageCount: sql<number>`(select count(*)::int from ${sellerProductImages} as spi where spi."productId" = ${sellerProducts.id} and spi."isPrimary" = true)`,
     }).from(sellerProducts)
       .innerJoin(users, eq(users.id, sellerProducts.sellerUserId))
       .leftJoin(sellerStores, eq(sellerStores.userId, sellerProducts.sellerUserId))
+      .leftJoin(sellerProductReviews, eq(sellerProductReviews.productId, sellerProducts.id))
       .where(where).orderBy(order, asc(sellerProducts.id)).limit(input.limit).offset(input.offset),
     database.select({ count: sql<number>`count(*)::int` }).from(sellerProducts)
       .where(where),
   ]);
   const total = Number(countRows[0]?.count ?? 0);
   return {
-    items: rows.map(row => ({ ...productOutput(row.product), seller: row.seller, store: row.store, imageCount: Number(row.imageCount), primaryImageCount: Number(row.primaryImageCount) })),
+    items: rows.map(row => ({ ...productOutput(row.product), seller: row.seller, store: row.store, reviewStatus: row.reviewStatus ?? null, imageCount: Number(row.imageCount), primaryImageCount: Number(row.primaryImageCount) })),
     total,
     offset: input.offset,
     limit: input.limit,
@@ -289,15 +292,17 @@ export const adminProductManagementRouter = router({
       seller: { id: users.id, name: users.name, email: users.email, role: users.role },
       application: { status: sellerApplications.status },
       store: { id: sellerStores.id, displayName: sellerStores.displayName, city: sellerStores.city, isActive: sellerStores.isActive },
+      review: { status: sellerProductReviews.status, note: sellerProductReviews.note, reviewedAt: sellerProductReviews.reviewedAt, submittedAt: sellerProductReviews.submittedAt },
     }).from(sellerProducts)
       .innerJoin(users, eq(users.id, sellerProducts.sellerUserId))
       .leftJoin(sellerApplications, eq(sellerApplications.userId, sellerProducts.sellerUserId))
       .leftJoin(sellerStores, eq(sellerStores.userId, sellerProducts.sellerUserId))
+      .leftJoin(sellerProductReviews, eq(sellerProductReviews.productId, sellerProducts.id))
       .where(eq(sellerProducts.id, input.productId)).limit(1);
     const row = rows[0];
     if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Product not found." });
     const [images, history] = await Promise.all([productGallery(database, input.productId), auditHistory(database, input.productId)]);
-    return { ...productOutput(row.product), seller: row.seller, application: row.application, store: row.store, images, history };
+    return { ...productOutput(row.product), seller: row.seller, application: row.application, store: row.store, review: row.review?.status ? row.review : null, images, history };
   }),
 
   create: adminProcedure.input(adminProductCreateInput).mutation(async ({ ctx, input }) => {
@@ -449,6 +454,87 @@ export const adminProductManagementRouter = router({
       await tx.update(sellerProducts).set({ updatedAt: new Date() }).where(eq(sellerProducts.id, product.id));
       await recordProductAudit(tx, { actorUserId: ctx.user.id, sellerUserId: product.sellerUserId, productId: product.id, eventType: "admin_edited_product_image", metadata: { imageId: input.imageId, changedFields: [input.caption === undefined ? null : "caption", input.displayOrder === undefined ? null : "displayOrder"].filter(Boolean) } });
       return updated[0]!;
+    });
+  }),
+});
+
+export const adminListingDecisionInput = z.object({
+  productId: z.string().trim().min(1).max(64),
+  decision: z.enum(["approve", "reject"] as const),
+  note: z.string().trim().max(1_000).optional(),
+}).strict().refine(input => input.decision === "approve" || Boolean(input.note && input.note.length >= 5), {
+  message: "Tell the seller why the listing was rejected (at least 5 characters).",
+  path: ["note"],
+});
+
+export const adminListingReviewRouter = router({
+  queue: adminProcedure.query(async () => {
+    const database = await requireDatabase();
+    const rows = await database.select({
+      product: sellerProducts,
+      review: sellerProductReviews,
+      seller: { id: users.id, name: users.name, email: users.email },
+      store: { displayName: sellerStores.displayName, city: sellerStores.city, isActive: sellerStores.isActive },
+    }).from(sellerProductReviews)
+      .innerJoin(sellerProducts, eq(sellerProducts.id, sellerProductReviews.productId))
+      .innerJoin(users, eq(users.id, sellerProducts.sellerUserId))
+      .leftJoin(sellerStores, eq(sellerStores.userId, sellerProducts.sellerUserId))
+      .where(and(eq(sellerProductReviews.status, "pending"), eq(sellerProducts.status, "published")))
+      .orderBy(asc(sellerProductReviews.submittedAt)).limit(100);
+    const galleries = await Promise.all(rows.map(row => productGallery(database, row.product.id)));
+    return rows.map((row, index) => ({
+      ...productOutput(row.product),
+      submittedAt: row.review.submittedAt,
+      seller: row.seller,
+      store: row.store,
+      images: galleries[index]!.map(image => ({ id: image.id, url: image.url, isPrimary: image.isPrimary })),
+    }));
+  }),
+
+  pendingCount: adminProcedure.query(async () => {
+    const database = await requireDatabase();
+    const rows = await database.select({ count: sql<number>`count(*)::int` }).from(sellerProductReviews)
+      .innerJoin(sellerProducts, eq(sellerProducts.id, sellerProductReviews.productId))
+      .where(and(eq(sellerProductReviews.status, "pending"), eq(sellerProducts.status, "published")));
+    return Number(rows[0]?.count ?? 0);
+  }),
+
+  decide: adminProcedure.input(adminListingDecisionInput).mutation(async ({ ctx, input }) => {
+    const database = await requireDatabase();
+    return database.transaction(async tx => {
+      await requireAdminActor(tx, ctx.user.id);
+      const product = await loadLockedProduct(tx, input.productId);
+      const reviews = await tx.select().from(sellerProductReviews)
+        .where(eq(sellerProductReviews.productId, input.productId)).limit(1).for("update");
+      if (reviews[0]?.status !== "pending" || product.status !== "published") {
+        throw new TRPCError({ code: "CONFLICT", message: "This listing is no longer waiting for approval. Refresh the queue." });
+      }
+      const approved = input.decision === "approve";
+      const now = new Date();
+      await tx.update(sellerProductReviews).set({
+        status: approved ? "approved" : "rejected",
+        note: input.note || null,
+        reviewedByUserId: ctx.user.id,
+        reviewedAt: now,
+      }).where(eq(sellerProductReviews.productId, input.productId));
+      // A rejected listing returns to draft so the seller clearly has to fix and resubmit it.
+      if (!approved) await tx.update(sellerProducts).set({ status: "draft", updatedAt: now }).where(eq(sellerProducts.id, product.id));
+      await recordProductAudit(tx, {
+        actorUserId: ctx.user.id,
+        sellerUserId: product.sellerUserId,
+        productId: product.id,
+        eventType: approved ? "admin_approved_listing" : "admin_rejected_listing",
+        metadata: { note: input.note ?? null },
+      });
+      await notifySeller(
+        tx, product.sellerUserId, product.id,
+        approved ? "Your listing is live" : "Your listing needs changes",
+        approved
+          ? `“${product.name.slice(0, 120)}” was approved and is now visible to shoppers.`
+          : `“${product.name.slice(0, 120)}” was not approved: ${(input.note ?? "").slice(0, 300)}`,
+        `review-${now.getTime()}`,
+      );
+      return { productId: product.id, status: approved ? "approved" as const : "rejected" as const };
     });
   }),
 });

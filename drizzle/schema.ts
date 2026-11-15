@@ -285,6 +285,33 @@ export const newsletterSubscriptions = pgTable("newsletterSubscriptions", {
   createdAtIdx: index("newsletterSubscriptions_createdAt_idx").on(table.createdAt),
 }));
 
+export const listingReviewStatuses = ["pending", "approved", "rejected"] as const;
+export const listingReviewStatusEnum = pgEnum("listing_review_status", listingReviewStatuses);
+
+/** Marketplace approval for a listing. Only `approved` listings are publicly visible or purchasable. */
+export const sellerProductReviews = pgTable("sellerProductReviews", {
+  productId: varchar("productId", { length: 64 }).primaryKey().references(() => sellerProducts.id, { onDelete: "cascade" }),
+  status: listingReviewStatusEnum("status").default("pending").notNull(),
+  note: text("note"),
+  reviewedByUserId: integer("reviewedByUserId").references(() => users.id, { onDelete: "set null" }),
+  reviewedAt: timestamp("reviewedAt", { withTimezone: true, mode: "date" }),
+  submittedAt: timestamp("submittedAt", { withTimezone: true, mode: "date" }).defaultNow().notNull(),
+}, table => ({
+  statusSubmittedIdx: index("sellerProductReviews_status_submittedAt_idx").on(table.status, table.submittedAt),
+}));
+
+/** Seller-chosen workspace appearance. A missing row means defaults. */
+export const sellerDashboardSettings = pgTable("sellerDashboardSettings", {
+  userId: integer("userId").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  dashboardName: varchar("dashboardName", { length: 60 }),
+  accentColor: varchar("accentColor", { length: 7 }).default("#22a35a").notNull(),
+  theme: varchar("theme", { length: 8 }).default("dark").notNull(),
+  updatedAt: updatedAt(),
+}, table => ({
+  hexAccent: check("sellerDashboardSettings_hex_accent", sql`${table.accentColor} ~ '^#[0-9a-f]{6}$'`),
+  knownTheme: check("sellerDashboardSettings_theme", sql`${table.theme} IN ('light', 'dark')`),
+}));
+
 export type AccountRole = (typeof accountRoles)[number];
 export type SellerApplicationStatus = (typeof sellerApplicationStatuses)[number];
 export type ProductStatus = (typeof productStatuses)[number];
@@ -307,3 +334,6 @@ export type OrderItem = typeof orderItems.$inferSelect;
 export type PaymentTransaction = typeof paymentTransactions.$inferSelect;
 export type ContactMessage = typeof contactMessages.$inferSelect;
 export type NewsletterSubscription = typeof newsletterSubscriptions.$inferSelect;
+export type ListingReviewStatus = (typeof listingReviewStatuses)[number];
+export type SellerProductReview = typeof sellerProductReviews.$inferSelect;
+export type SellerDashboardSettings = typeof sellerDashboardSettings.$inferSelect;
