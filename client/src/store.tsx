@@ -17,6 +17,7 @@ export type Product = {
   experience?: string;
   color?: "Brown" | "Tan" | "Black" | "Olive" | "Rust" | "Sand";
   inventoryCount?: number;
+  storeId?: number;
 }
 
 export type CartLine = { productId: string; quantity: number; size: string };
@@ -206,6 +207,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       experience: product.city ? `${product.city}, Nigeria` : "Nigeria",
       color: "Brown",
       inventoryCount: product.inventoryCount,
+      storeId: product.storeId,
     };
   }), [catalogQuery.data]);
   const [cart, setCart] = useState<CartLine[]>(() => {

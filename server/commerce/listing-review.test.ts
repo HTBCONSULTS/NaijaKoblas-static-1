@@ -12,6 +12,10 @@ describe("listing review rules", () => {
     expect(changesReviewedContent({ inventoryCount: 4 })).toBe(false);
   });
 
+  it("re-reviews an approved listing that is relisted from the archive", () => {
+    expect(nextReviewStatus({ current: "approved", publishing: true, contentChanged: false, fromArchived: true })).toBe("pending");
+  });
+
   it("re-reviews an approved listing when customer-facing content changes", () => {
     expect(changesReviewedContent({ priceKobo: 100 })).toBe(true);
     expect(nextReviewStatus({ current: "approved", publishing: false, contentChanged: true })).toBe("pending");

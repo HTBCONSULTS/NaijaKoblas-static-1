@@ -1096,6 +1096,7 @@ export async function updateSellerProduct(input: {
       const review = nextReviewStatus({
         current: await getListingReviewStatus(tx, updated.id),
         publishing: input.changes.status === "published",
+        fromArchived: existing[0]!.status === "archived",
         contentChanged: changesReviewedContent(input.changes),
       });
       if (review === "pending") await queueListingForReview(tx, updated.id, updated.name);
@@ -1117,6 +1118,7 @@ export async function listPublicSellerProducts() {
     inventoryCount: sellerProducts.inventoryCount,
     maker: sellerStores.displayName,
     city: sellerStores.city,
+    storeId: sellerStores.id,
   })
     .from(sellerProducts).innerJoin(sellerStores, eq(sellerProducts.sellerUserId, sellerStores.userId))
     .innerJoin(sellerProductReviews, eq(sellerProductReviews.productId, sellerProducts.id))
@@ -1131,6 +1133,23 @@ export async function listPublicSellerProducts() {
     ...product,
     images: (gallery.get(product.id) ?? []).map(image => image.url),
   }));
+}
+
+/** Public store profile: only details the seller chose to publish. Never returns account IDs or emails. */
+export async function getPublicStore(storeId: number) {
+  const database = await requireDb();
+  const rows = await database.select({
+    id: sellerStores.id,
+    displayName: sellerStores.displayName,
+    city: sellerStores.city,
+    description: sellerStores.description,
+    createdAt: sellerStores.createdAt,
+    accentColor: sellerDashboardSettings.accentColor,
+  }).from(sellerStores)
+    .leftJoin(sellerDashboardSettings, eq(sellerDashboardSettings.userId, sellerStores.userId))
+    .where(and(eq(sellerStores.id, storeId), eq(sellerStores.isActive, true))).limit(1);
+  const store = rows[0];
+  return store ? { ...store, accentColor: store.accentColor ?? "#22a35a" } : null;
 }
 
 export type CheckoutItemInput = { productId: string; quantity: number; size: string };

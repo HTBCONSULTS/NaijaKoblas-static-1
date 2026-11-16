@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
@@ -7,7 +7,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { StoreProvider } from "./store";
 import { StoreShell } from "./components/store/StoreShell";
-import { AboutPage, CartPage, CheckoutPage, ContactPage, HomePage, InfoPage, OrderConfirmationPage, ProductDetailPage, ProductsPage, VendorPage, WaitlistPage } from "./pages/StorePages";
+import { AboutPage, CartPage, CheckoutPage, ContactPage, HomePage, InfoPage, OrderConfirmationPage, ProductDetailPage, ProductsPage, SellerStorePage, VendorPage, WaitlistPage } from "./pages/StorePages";
 import { AccountPage, SuspendedSellerFulfillmentPage } from "./pages/AccountPages";
 import { AuthPage } from "./pages/AuthPage";
 import { SellerWorkspacePage } from "./pages/SellerWorkspacePage";
@@ -21,10 +21,13 @@ function AdminRoute() {
 
 function Router() {
   const [location] = useLocation();
+  // Start each new page at the top; wouter keeps the previous scroll position otherwise.
+  useEffect(() => { if (!window.location.hash) window.scrollTo(0, 0); }, [location]);
   const routes = <Switch>
     <Route path="/" component={HomePage} />
     <Route path="/products" component={ProductsPage} />
     <Route path="/products/:id" component={ProductDetailPage} />
+    <Route path="/store/:id" component={SellerStorePage} />
     <Route path="/cart" component={CartPage} />
     <Route path="/checkout" component={CheckoutPage} />
     <Route path="/order-confirmation" component={OrderConfirmationPage} />
