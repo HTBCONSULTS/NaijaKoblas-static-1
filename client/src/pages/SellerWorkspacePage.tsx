@@ -310,7 +310,7 @@ function SettingsSection({ data, onChanged }: { data: Dashboard; onChanged: (mes
   return <section className="admin-ops-page">
     <div className="admin-ops-two-column">
       <form className="admin-ops-section" onSubmit={event => { event.preventDefault(); saveProfile.mutate(profile); }}>
-        <div className="section-heading"><div><span className="eyebrow"><Store size={13} /> Public</span><h2>Store profile</h2><p>Shoppers see your store name and city on every product.</p></div></div>
+        <div className="section-heading"><div><span className="eyebrow"><Store size={13} /> Public</span><h2>Store profile</h2><p>Shoppers see this on your public store page and on every product.</p></div>{data.store && <Link href={`/store/${data.store.id}`} className="button button--outline">View public store</Link>}</div>
         <div className="form-grid">
           <label className="form-field"><span>STORE NAME</span><input value={profile.displayName} minLength={2} maxLength={160} required onChange={event => setProfile(current => ({ ...current, displayName: event.target.value }))} /></label>
           <label className="form-field"><span>CITY</span><input value={profile.city} minLength={2} maxLength={100} required onChange={event => setProfile(current => ({ ...current, city: event.target.value }))} /></label>
@@ -321,7 +321,7 @@ function SettingsSection({ data, onChanged }: { data: Dashboard; onChanged: (mes
       </form>
 
       <form className="admin-ops-section" onSubmit={event => { event.preventDefault(); saveLook.mutate({ ...look, dashboardName: look.dashboardName.trim() || null }); }}>
-        <div className="section-heading"><div><span className="eyebrow"><Palette size={13} /> Only you see this</span><h2>Dashboard appearance</h2><p>Make the workspace feel like yours.</p></div></div>
+        <div className="section-heading"><div><span className="eyebrow"><Palette size={13} /> Your branding</span><h2>Dashboard appearance</h2><p>The name and mode are just for your workspace. Your accent colour also styles your public store page.</p></div></div>
         <label className="form-field"><span>DASHBOARD NAME</span><input value={look.dashboardName} maxLength={60} placeholder={data.store?.displayName ?? "My store"} onChange={event => setLook(current => ({ ...current, dashboardName: event.target.value }))} /></label>
         <fieldset className="seller-swatches">
           <legend>ACCENT COLOUR</legend>

@@ -164,7 +164,7 @@ export function ProductCard({ product }: { product: Product }) {
   const saved = wishlist.includes(product.id);
   return <article className="product-card">
     <div className="product-image-wrap"><Link href={`/products/${product.id}`} className="product-image-link"><img src={product.image} alt={product.name} /></Link><button className={`wishlist-button ${saved ? "saved" : ""}`} onClick={() => toggleWishlist(product.id)} aria-label={saved ? "Remove from wishlist" : "Add to wishlist"}><Heart size={17} fill={saved ? "currentColor" : "none"} /></button></div>
-    <div className="product-card-meta"><div><Link href={`/products/${product.id}`} className="product-name">{product.name}</Link><span className="product-maker">by {product.maker}</span></div><strong>{money(product.price)}</strong></div>
+    <div className="product-card-meta"><div><Link href={`/products/${product.id}`} className="product-name">{product.name}</Link><span className="product-maker">by {product.storeId ? <Link href={`/store/${product.storeId}`}>{product.maker}</Link> : product.maker}</span></div><strong>{money(product.price)}</strong></div>
     <div className="product-card-bottom"><span className="product-category">{product.category}</span><button className="text-button" onClick={() => addToCart(product.id)}><ShoppingBag size={15} /> Add to cart</button></div>
   </article>;
 }

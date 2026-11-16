@@ -15,8 +15,10 @@ export function nextReviewStatus(input: {
   current: ListingReviewStatus | null;
   publishing: boolean;
   contentChanged: boolean;
+  /** Archived listings (possibly taken down by an admin) are re-checked before they return. */
+  fromArchived?: boolean;
 }): "pending" | null {
-  if (input.publishing && input.current !== "approved") return "pending";
+  if (input.publishing && (input.current !== "approved" || input.fromArchived)) return "pending";
   if (input.contentChanged && input.current === "approved") return "pending";
   return null;
 }

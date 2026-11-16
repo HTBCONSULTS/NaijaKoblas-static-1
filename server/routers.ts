@@ -84,6 +84,11 @@ export const appRouter = router({
 
   catalog: router({
     list: publicProcedure.query(() => db.listPublicSellerProducts()),
+    store: publicProcedure.input(z.object({ storeId: z.number().int().positive() })).query(async ({ input }) => {
+      const store = await db.getPublicStore(input.storeId);
+      if (!store) throw new TRPCError({ code: "NOT_FOUND", message: "This store is not available." });
+      return store;
+    }),
   }),
 
   submissions: publicSubmissionsRouter,
