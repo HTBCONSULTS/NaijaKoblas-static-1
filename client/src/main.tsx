@@ -13,6 +13,7 @@ import { safeAuthReturnTo, startLogin } from "./const";
 import "./index.css";
 import "./workspace.css";
 import "./storefront.css";
+import "./gold.css";
 
 const queryClient = new QueryClient();
 

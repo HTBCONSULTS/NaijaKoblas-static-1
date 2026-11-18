@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useRoute } from "wouter";
-import { ArrowDownRight, ArrowLeft, ArrowRight, BadgeCheck, Check, ChevronDown, Clock3, Heart, Instagram, Mail, MapPin, Minus, PackageCheck, Plus, Search, ShieldCheck, ShoppingBag, SlidersHorizontal, Sparkles, Star, Truck, UserRound, X } from "lucide-react";
-import { Breadcrumb, PageIntro, Pill, ProductCard, SectionHeading, TrustStrip } from "@/components/store/StoreShell";
+import { ArrowDownRight, ArrowLeft, ArrowRight, BadgeCheck, CalendarDays, Check, ChevronDown, Clock3, Heart, Instagram, Mail, MapPin, Minus, PackageCheck, Plus, Search, ShieldCheck, ShoppingBag, SlidersHorizontal, Sparkles, Star, Truck, UserRound, X } from "lucide-react";
+import { useSearch } from "wouter";
+import { Breadcrumb, COLLECTIONS, PageIntro, Pill, ProductCard, SectionHeading, TrustStrip } from "@/components/store/StoreShell";
 import { BecomeSellerButton } from "@/components/store/BecomeSellerButton";
 import { money, products, useStore, type Product } from "@/store";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -12,16 +13,116 @@ import { useAuth } from "@/_core/hooks/useAuth";
 
 const heroImage = "/naijakoblas-hero.jpg";
 
+function sellerCtaFor(role?: string) {
+  return role === "seller" ? ["Seller Dashboard", "/seller"] : role === "staff" ? ["Staff Portal", "/staff"] : role === "admin" ? ["Admin Console", "/admin"] : ["Become a Maker", "/vendor"];
+}
+
+export function CollectionCards() {
+  return <div className="nk-collections">{COLLECTIONS.map(({ name, blurb, image, position, icon: Icon }) => <Link key={name} href={`/products?category=${name}`} className="nk-collection-card">
+    <img src={image} alt="" loading="lazy" style={position ? { objectPosition: position } : undefined} />
+    <div><Icon size={20} aria-hidden="true" /><strong>{name}</strong><span>{blurb}</span></div>
+    <span className="nk-round-arrow" aria-hidden="true"><ArrowRight size={14} /></span>
+  </Link>)}</div>;
+}
+
+export function MakersExhibitionPanels() {
+  return <section className="container-wide nk-panels">
+    <article className="nk-panel nk-panel--makers">
+      <img src="/naijakoblas-sneakers-detail.jpg" alt="Close-up of hand-stitched leather" loading="lazy" />
+      <div><span className="eyebrow">Meet the makers</span><h2>The People Behind the Craft</h2><p>A growing community of Nigerian artisans preserving tradition, creating jobs and shaping the future of African leather.</p><Link href="/makers" className="button button--outline">Meet Our Makers <ArrowRight size={16} /></Link></div>
+    </article>
+    <article className="nk-panel nk-panel--exhibition">
+      <div><span className="nk-tag"><CalendarDays size={14} aria-hidden="true" /> Proposed for April</span><h2>NaijaKoblas <em>Exhibition 2027</em></h2><p>A planned gathering to showcase Nigeria's leather talent, innovation and craftsmanship to the world.</p><Link href="/exhibition" className="button button--outline">Register Interest <ArrowRight size={16} /></Link></div>
+    </article>
+  </section>;
+}
+
 export function HomePage() {
-  const { addToCart, catalogProducts, catalogLoading, catalogError } = useStore();
+  const { catalogProducts, catalogLoading, catalogError } = useStore();
   const auth = useAuth();
-  const featured = catalogProducts[0];
-  const sellerCta = auth.user?.role === "seller" ? ["Open Seller Workspace", "/seller"] : auth.user?.role === "staff" ? ["Open Staff Portal", "/staff"] : auth.user?.role === "admin" ? ["Open Admin Portal", "/admin"] : ["Become a Seller", "/vendor"];
-  return <main>
-    <section className="hero container-wide"><div className="hero-copy"><Pill tone="lime">Authentic African Craftsmanship</Pill><h1>Leather Goods<br /><em>Made with Nigerian<br />Heritage.</em></h1><p>Handcrafted leather shoes, bags, belts and accessories from independent makers across Nigeria, each listing reviewed by our team.</p><div className="hero-actions"><Link className="button button--dark" href="/products">Shop Collection <ArrowRight size={17} /></Link><Link className="button button--outline" href="/about">Our Story <ArrowDownRight size={17} /></Link></div><ul className="hero-stats"><li><BadgeCheck size={18} /><div><strong>Reviewed listings</strong><span>Every product is approved before it goes live</span></div></li><li><ShieldCheck size={18} /><div><strong>Secure payment</strong><span>Card, transfer or USSD via Paystack</span></div></li><li><Truck size={18} /><div><strong>Tracked orders</strong><span>Follow delivery from your account</span></div></li></ul></div><div className="hero-visual"><img src={heroImage} alt="Nigerian artisan leather collection" /><div className="hero-stamp"><span>NK</span><small>AUTHENTIC<br />CRAFT</small></div><div className="hero-caption"><span>01</span><strong>Handcrafted<br />in Nigeria</strong></div></div></section>
+  const sellerCta = sellerCtaFor(auth.user?.role);
+  return <main className="nk-home">
+    <section className="nk-hero">
+      <div className="nk-hero-media" aria-hidden="true"><img src={heroImage} alt="" /></div>
+      <div className="container-wide nk-hero-inner">
+        <div className="nk-hero-copy">
+          <span className="nk-kicker">The Nigerian leather marketplace</span>
+          <h1>Premium Nigerian Leather <em>Craftsmanship</em></h1>
+          <p>Discover expertly crafted leather bags, shoes, belts, jackets and accessories from Nigeria's most talented independent makers.</p>
+          <div className="hero-actions">
+            <Link className="button button--dark" href="/products">Shop Collection <ArrowRight size={17} /></Link>
+            <Link className="button button--outline" href={sellerCta[1]}><UserRound size={17} /> {sellerCta[0]}</Link>
+          </div>
+        </div>
+      </div>
+    </section>
     <TrustStrip />
-    <section className="section home-catalog"><div className="container-wide"><SectionHeading eyebrow="Browse by Type" title="Shop by Category" /><div className="home-category-tabs">{["All", "Shoes", "Bags", "Belts", "Accessories"].map(category => <Link key={category} className={category === "All" ? "active" : ""} href={category === "All" ? "/products" : `/products?category=${encodeURIComponent(category)}`}>{category}</Link>)}</div>{catalogLoading ? <p className="catalog-status">Loading published artisan products…</p> : catalogError ? <p className="portal-error">The live catalog is temporarily unavailable. Please try again shortly.</p> : catalogProducts.length ? <div className="product-grid product-grid--featured">{catalogProducts.slice(0, 4).map((product) => <ProductCard key={product.id} product={product} />)}</div> : <div className="empty-state"><h3>Our artisan collection is getting ready.</h3><p>Published seller products will appear here as sellers complete their listings.</p><Link className="button button--outline" href={sellerCta[1]}>{sellerCta[0]}</Link></div>}<Link href="/products" className="home-view-all">View All Products <ArrowRight size={15} /></Link></div></section>
-    {featured && <section className="spotlight section container-wide"><div className="spotlight-image"><img src={featured.image} alt={featured.name} /><span className="vertical-label">ARTISAN SPOTLIGHT</span></div><div className="spotlight-copy"><span className="eyebrow">Featured Collection</span><span className="spotlight-location">{featured.experience ?? "Made in Nigeria"}</span><h2>{featured.name}</h2><p>Made by {featured.maker} <span className="verified"><span>✓</span> Reviewed listing</span></p><p className="spotlight-detail">{featured.description}</p><strong className="spotlight-price">{money(featured.price)}</strong><div className="spotlight-actions"><button className="button button--dark" onClick={() => addToCart(featured.id, featured.sizes[0])}>Add to Cart <ShoppingBag size={15} /></button><Link className="button button--outline" href={`/products/${featured.id}`}>View Details <ArrowRight size={17} /></Link></div></div></section>}
+    <section className="container-wide nk-featured">
+      <div className="nk-featured-intro"><span className="eyebrow">Featured collections</span><h2>Explore Nigerian Leather</h2><p>Curated categories of authentic, handcrafted leather goods.</p><Link href="/products" className="nk-text-link">View All Collections <ArrowRight size={15} /></Link></div>
+      <CollectionCards />
+    </section>
+    <section className="container-wide nk-arrivals">
+      <SectionHeading eyebrow="Fresh from the workshop" title="New Arrivals" action={<Link href="/products" className="nk-text-link">Shop all <ArrowRight size={15} /></Link>} />
+      {catalogLoading ? <p className="catalog-status">Loading products…</p> : catalogError ? <p className="portal-error">The live catalog is temporarily unavailable. Please try again shortly.</p> : catalogProducts.length ? <div className="product-grid product-grid--featured">{catalogProducts.slice(0, 4).map(product => <ProductCard key={product.id} product={product} />)}</div> : <div className="empty-state"><h3>Our collection is getting ready.</h3><p>Approved products from our makers will appear here soon.</p><Link className="button button--outline" href={sellerCta[1]}>{sellerCta[0]}</Link></div>}
+    </section>
+    <MakersExhibitionPanels />
+  </main>;
+}
+
+export function MakersPage() {
+  const { catalogProducts, catalogLoading } = useStore();
+  const auth = useAuth();
+  const sellerCta = sellerCtaFor(auth.user?.role);
+  const makers = useMemo(() => {
+    const byStore = new Map<number, { id: number; name: string; city: string; image: string; count: number; categories: Set<string> }>();
+    for (const product of catalogProducts) {
+      if (!product.storeId) continue;
+      const entry = byStore.get(product.storeId) ?? { id: product.storeId, name: product.maker, city: product.experience?.replace(", Nigeria", "") ?? "Nigeria", image: product.image, count: 0, categories: new Set<string>() };
+      entry.count += 1;
+      entry.categories.add(product.category);
+      byStore.set(product.storeId, entry);
+    }
+    return [...byStore.values()].sort((a, b) => b.count - a.count);
+  }, [catalogProducts]);
+  return <main className="nk-page">
+    <section className="container-wide nk-page-head"><span className="nk-kicker">Makers & exhibition</span><h1>Meet the <em>Makers</em></h1><p>The independent Nigerian artisans behind every NaijaKoblas piece. Visit a store to see their story and full collection.</p></section>
+    <section className="container-wide">
+      {catalogLoading ? <p className="catalog-status">Loading makers…</p> : makers.length ? <div className="nk-makers">{makers.map(maker => <Link key={maker.id} href={`/store/${maker.id}`} className="nk-maker-card">
+        <img src={maker.image} alt="" loading="lazy" />
+        <div><strong>{maker.name}</strong><span><MapPin size={13} aria-hidden="true" /> {maker.city}</span><small>{maker.count} {maker.count === 1 ? "product" : "products"} · {[...maker.categories].slice(0, 3).join(", ")}</small></div>
+        <span className="nk-round-arrow" aria-hidden="true"><ArrowRight size={14} /></span>
+      </Link>)}</div> : <div className="empty-state"><h3>Our first makers are getting ready.</h3><p>Stores appear here once their products are approved.</p></div>}
+    </section>
+    <MakersExhibitionPanels />
+    <section className="container-wide nk-maker-band"><BadgeCheck size={28} aria-hidden="true" /><div><h2>Are You a Maker?</h2><p>Join NaijaKoblas and showcase your leather products to a wider audience.</p></div><Link href={sellerCta[1]} className="button button--dark">{sellerCta[0] === "Become a Maker" ? "Register Your Interest" : sellerCta[0]} <ArrowRight size={16} /></Link></section>
+  </main>;
+}
+
+export function ExhibitionPage() {
+  const [email, setEmail] = useState("");
+  const subscribe = trpc.submissions.subscribe.useMutation();
+  const points: Array<[string, string]> = [
+    ["Showcase", "Makers present their best work to buyers, press and partners in one place."],
+    ["Discover", "Meet the people behind the craft and see techniques up close."],
+    ["Connect", "Build relationships between Nigerian makers, retailers and the wider world."],
+  ];
+  return <main className="nk-page">
+    <section className="container-wide nk-exhibition-hero">
+      <div>
+        <span className="nk-tag"><CalendarDays size={14} aria-hidden="true" /> Proposed for April 2027</span>
+        <h1>NaijaKoblas <em>Exhibition 2027</em></h1>
+        <p>A planned gathering to showcase Nigeria's leather talent, innovation and craftsmanship to the world. Dates and venue aren't confirmed yet; register your interest and we'll share updates as plans firm up.</p>
+        <form className="nk-waitlist-form" onSubmit={event => { event.preventDefault(); subscribe.mutate({ email, source: "exhibition" }); }}>
+          <label className="nk-input"><span aria-hidden="true">✉</span><input type="email" required value={email} onChange={event => setEmail(event.target.value)} placeholder="Enter your email address" aria-label="Your email address" /></label>
+          <button className="button button--dark" type="submit" disabled={subscribe.isPending}>{subscribe.isSuccess ? "Interest registered" : subscribe.isPending ? "Saving…" : "Register Interest"} <ArrowRight size={16} /></button>
+          {subscribe.error && <small className="form-error" role="status">{subscribe.error.message}</small>}
+          {subscribe.isSuccess && <small className="form-success" role="status">Thanks! We'll email you when there's news about the exhibition.</small>}
+        </form>
+      </div>
+      <img src="/naijakoblas-briefcase.jpg" alt="Hand-finished leather briefcase" />
+    </section>
+    <section className="container-wide nk-points">{points.map(([title, copy], index) => <article key={title}><span>0{index + 1}</span><h2>{title}</h2><p>{copy}</p></article>)}</section>
+    <section className="container-wide nk-maker-band"><UserRound size={28} aria-hidden="true" /><div><h2>Want to exhibit?</h2><p>Makers selling on NaijaKoblas will be first to hear about exhibitor places.</p></div><Link href="/vendor" className="button button--dark">Become a Maker <ArrowRight size={16} /></Link></section>
   </main>;
 }
 
@@ -41,11 +142,19 @@ function ProductGallery({ product }: { product: Product }) {
 
 export function ProductsPage() {
   const [, navigate] = useLocation();
-  const { catalogProducts, catalogLoading, catalogError } = useStore();
-  const params = new URLSearchParams(window.location.search);
-  const initialCategory = params.get("category") ?? "All";
-  const [category, setCategory] = useState(initialCategory);
-  const [search, setSearch] = useState("");
+  const { catalogProducts, catalogLoading, catalogError, wishlist } = useStore();
+  const searchString = useSearch();
+  const params = new URLSearchParams(searchString);
+  const savedOnly = params.get("saved") === "1";
+  const [category, setCategory] = useState(params.get("category") ?? "All");
+  const [search, setSearch] = useState(params.get("q") ?? "");
+  const [sort, setSort] = useState<"featured" | "price-asc" | "price-desc" | "name">("featured");
+  // Header search and collection links change the URL while this page stays mounted.
+  useEffect(() => {
+    const next = new URLSearchParams(searchString);
+    setCategory(next.get("category") ?? "All");
+    setSearch(next.get("q") ?? "");
+  }, [searchString]);
   const [showFilters, setShowFilters] = useState(false);
   const filterTriggerRef = useRef<HTMLButtonElement | null>(null);
   const filterCloseRef = useRef<HTMLButtonElement | null>(null);
@@ -54,11 +163,18 @@ export function ProductsPage() {
   const catalogMaxPrice = Math.max(0, ...catalogProducts.map(product => product.price));
   const [priceCeiling, setPriceCeiling] = useState<number | null>(null);
   const effectivePriceCeiling = priceCeiling ?? catalogMaxPrice;
-  const categories = ["All", ...new Set(catalogProducts.map(product => product.category))];
-  const visible = useMemo(() => catalogProducts
-    .filter((product) => category === "All" || product.category === category)
-    .filter((product) => `${product.name} ${product.maker}`.toLowerCase().includes(search.toLowerCase()))
-    .filter((product) => product.price >= priceFloor && product.price <= effectivePriceCeiling), [catalogProducts, category, search, priceFloor, effectivePriceCeiling]);
+  const categories = ["All", ...new Set([...COLLECTIONS.map(item => item.name), ...catalogProducts.map(product => product.category)])];
+  const visible = useMemo(() => {
+    const list = catalogProducts
+      .filter((product) => !savedOnly || wishlist.includes(product.id))
+      .filter((product) => category === "All" || product.category === category)
+      .filter((product) => `${product.name} ${product.maker} ${product.category}`.toLowerCase().includes(search.toLowerCase()))
+      .filter((product) => product.price >= priceFloor && product.price <= effectivePriceCeiling);
+    if (sort === "price-asc") return [...list].sort((a, b) => a.price - b.price);
+    if (sort === "price-desc") return [...list].sort((a, b) => b.price - a.price);
+    if (sort === "name") return [...list].sort((a, b) => a.name.localeCompare(b.name));
+    return list;
+  }, [catalogProducts, savedOnly, wishlist, category, search, priceFloor, effectivePriceCeiling, sort]);
   const selectCategory = (value: string) => {
     setCategory(value);
     navigate(value === "All" ? "/products" : `/products?category=${value}`);
@@ -117,7 +233,9 @@ export function ProductsPage() {
     };
   }, [showFilters]);
   return <main className="catalog-page">
-    <section className="catalog-page-head container-wide"><Breadcrumb items={["Home", "Products"]} /><h1>All Products</h1></section>
+    <section className="catalog-page-head container-wide nk-page-head"><h1>{savedOnly ? <>Saved <em>Items</em></> : <>Shop <em>Collections</em></>}</h1><p>{savedOnly ? "The pieces you've hearted. Saved on this device." : "Explore authentic, handcrafted leather goods from Nigerian makers."}</p>
+      <div className="nk-chips" role="toolbar" aria-label="Filter by collection">{["All", ...COLLECTIONS.map(item => item.name)].map(item => { const Icon = COLLECTIONS.find(entry => entry.name === item)?.icon; return <button key={item} type="button" className={category === item ? "active" : ""} aria-pressed={category === item} onClick={() => selectCategory(item)}>{Icon && <Icon size={15} aria-hidden="true" />}{item}</button>; })}</div>
+    </section>
     <section className="catalog-layout container-wide">
       <aside id="product-filter-panel" ref={filterSidebarRef} className={`filter-sidebar ${showFilters ? "filter-sidebar--open" : ""}`} role={showFilters ? "dialog" : "region"} aria-labelledby="filter-drawer-title" aria-modal={showFilters ? "true" : undefined} onClick={event => { if (event.target === event.currentTarget && showFilters) closeFilters(); }}>
         <div className="filter-mobile-heading"><strong id="filter-drawer-title">Filters</strong><button ref={filterCloseRef} type="button" aria-label="Close filters" onClick={closeFilters}><X size={20} /></button></div>
@@ -127,7 +245,7 @@ export function ProductsPage() {
         <button className="apply-filter-button" onClick={closeFilters}>Apply Filters</button>
         <button className="sidebar-clear" onClick={clearFilters}>Clear Filters</button>
       </aside>
-      <div className="catalog-results"><div className="catalog-results-heading"><span>Showing <b>{visible.length}</b> products</span><button ref={filterTriggerRef} type="button" className="catalog-filter-trigger" aria-expanded={showFilters} aria-controls="product-filter-panel" onClick={() => setShowFilters(true)}><SlidersHorizontal size={17} /> Filters</button></div>{catalogLoading ? <p className="catalog-status">Loading published artisan products…</p> : catalogError ? <p className="portal-error">The live catalog is temporarily unavailable. Please try again shortly.</p> : <div className="product-grid">{visible.map((product) => <ProductCard key={product.id} product={product} />)}</div>}{!catalogLoading && !catalogError && visible.length === 0 && <div className="empty-state"><Search size={26} /><h3>No published pieces found</h3><p>Try a different search or browse all available products.</p><button className="button button--dark" onClick={clearFilters}>View all products</button></div>}</div>
+      <div className="catalog-results"><div className="catalog-results-heading"><span><b>{visible.length}</b> {visible.length === 1 ? "Product" : "Products"}</span><label className="nk-sort">Sort: <select value={sort} onChange={event => setSort(event.target.value as typeof sort)}><option value="featured">Featured</option><option value="price-asc">Price: low to high</option><option value="price-desc">Price: high to low</option><option value="name">Name</option></select></label><button ref={filterTriggerRef} type="button" className="catalog-filter-trigger" aria-expanded={showFilters} aria-controls="product-filter-panel" onClick={() => setShowFilters(true)}><SlidersHorizontal size={17} /> Filters</button></div>{catalogLoading ? <p className="catalog-status">Loading published artisan products…</p> : catalogError ? <p className="portal-error">The live catalog is temporarily unavailable. Please try again shortly.</p> : <div className="product-grid">{visible.map((product) => <ProductCard key={product.id} product={product} />)}</div>}{!catalogLoading && !catalogError && visible.length === 0 && <div className="empty-state"><Search size={26} /><h3>No published pieces found</h3><p>Try a different search or browse all available products.</p><button className="button button--dark" onClick={clearFilters}>View all products</button></div>}</div>
     </section>
   </main>;
 }
