@@ -17,7 +17,10 @@ export const COLLECTIONS: Array<{ name: string; blurb: string; image: string; po
 ];
 
 export function BrandMark({ light = false }: { light?: boolean }) {
-  return <Link href="/" className={`nk-brand ${light ? "nk-brand--footer" : ""}`} aria-label="NaijaKoblas home"><span className="nk-brand-mono" aria-hidden="true">NK</span><span className="nk-brand-word">NaijaKoblas</span></Link>;
+  const { theme } = useTheme();
+  // original green logo; header and footer share the page theme in the gold redesign
+  const logo = theme === "dark" ? "/naija-koblas-logo-white.png" : "/naija-koblas-logo-light.png";
+  return <Link href="/" className={`nk-brand ${light ? "nk-brand--footer" : ""}`} aria-label="NaijaKoblas home"><img className="nk-brand-logo" src={logo} alt="Naija Koblas" /></Link>;
 }
 
 export function Navbar() {

@@ -41,6 +41,7 @@ html.dark body { background: #0a1812; }
 .nk-header { position: sticky; top: 0; z-index: 60; border-bottom: 1px solid var(--ref-line); background: color-mix(in srgb, var(--ref-deep) 88%, transparent); backdrop-filter: blur(14px); }
 .nk-header-inner { display: flex; align-items: center; gap: 22px; min-height: 72px; }
 .nk-brand { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 8px; color: var(--ref-text); text-decoration: none; }
+.nk-brand-logo { display: block; width: 116px; height: auto; object-fit: contain; }
 .nk-brand-mono { color: var(--gold); font: italic 700 30px/1 var(--serif); letter-spacing: -.08em; }
 .nk-brand-word { font: 700 22px/1 var(--serif); letter-spacing: -.01em; }
 .nk-header-inner > .nk-brand { padding-right: 22px; border-right: 1px solid var(--ref-line); }
