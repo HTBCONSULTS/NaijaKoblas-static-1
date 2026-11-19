@@ -25,7 +25,7 @@ export async function createContactMessage(input: {
   return { stored: true as const, id: created.id, createdAt: created.createdAt };
 }
 
-export async function createNewsletterSubscription(email: string, source: "newsletter" | "waitlist") {
+export async function createNewsletterSubscription(email: string, source: "newsletter" | "waitlist" | "exhibition") {
   const database = requireDatabase(await getDb());
   const normalizedEmail = email.trim().toLowerCase();
   const [created] = await database.insert(newsletterSubscriptions).values({ email: normalizedEmail, source })
@@ -83,7 +83,7 @@ const contactSchema = z.object({
 }).strict();
 const subscriptionSchema = z.object({
   email: z.string().trim().email().max(320),
-  source: z.enum(["newsletter", "waitlist"]).default("newsletter"),
+  source: z.enum(["newsletter", "waitlist", "exhibition"]).default("newsletter"),
 }).strict();
 
 export const publicSubmissionsRouter = router({

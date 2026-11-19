@@ -7,7 +7,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { StoreProvider } from "./store";
 import { StoreShell } from "./components/store/StoreShell";
-import { AboutPage, CartPage, CheckoutPage, ContactPage, HomePage, InfoPage, OrderConfirmationPage, ProductDetailPage, ProductsPage, SellerStorePage, VendorPage, WaitlistPage } from "./pages/StorePages";
+import { AboutPage, CartPage, CheckoutPage, ContactPage, HomePage, InfoPage, OrderConfirmationPage, ProductDetailPage, ProductsPage, SellerStorePage, VendorPage, WaitlistPage, MakersPage, ExhibitionPage } from "./pages/StorePages";
 import { AccountPage, SuspendedSellerFulfillmentPage } from "./pages/AccountPages";
 import { AuthPage } from "./pages/AuthPage";
 import { SellerWorkspacePage } from "./pages/SellerWorkspacePage";
@@ -28,6 +28,8 @@ function Router() {
     <Route path="/products" component={ProductsPage} />
     <Route path="/products/:id" component={ProductDetailPage} />
     <Route path="/store/:id" component={SellerStorePage} />
+    <Route path="/makers" component={MakersPage} />
+    <Route path="/exhibition" component={ExhibitionPage} />
     <Route path="/cart" component={CartPage} />
     <Route path="/checkout" component={CheckoutPage} />
     <Route path="/order-confirmation" component={OrderConfirmationPage} />
