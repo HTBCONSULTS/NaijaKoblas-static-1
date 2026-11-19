@@ -23,7 +23,8 @@ export function ThemeProvider({
 }: ThemeProviderProps) {
   const [theme, setTheme] = useState<Theme>(() => {
     if (switchable) {
-      const stored = localStorage.getItem("theme");
+      // new key so earlier saved choices reset to the green (dark) default once
+      const stored = localStorage.getItem("nk-theme");
       return (stored as Theme) || defaultTheme;
     }
     return defaultTheme;
@@ -38,7 +39,7 @@ export function ThemeProvider({
     }
 
     if (switchable) {
-      localStorage.setItem("theme", theme);
+      localStorage.setItem("nk-theme", theme);
     }
   }, [theme, switchable]);
 
