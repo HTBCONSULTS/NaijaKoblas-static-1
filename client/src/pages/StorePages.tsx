@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useRoute } from "wouter";
-import { ArrowDownRight, ArrowLeft, ArrowRight, BadgeCheck, CalendarDays, Check, ChevronDown, Clock3, Heart, Instagram, Mail, MapPin, Minus, PackageCheck, Plus, Search, ShieldCheck, ShoppingBag, SlidersHorizontal, Sparkles, Star, Truck, UserRound, X } from "lucide-react";
+import { ArrowDownRight, ArrowLeft, ArrowRight, Award, BadgeCheck, BookOpen, CalendarDays, Check, ChevronDown, Clock3, Globe, Handshake, Heart, Instagram, Landmark, Lightbulb, Mail, MapPin, Minus, PackageCheck, PlayCircle, Plus, Scissors, Search, ShieldCheck, ShoppingBag, SlidersHorizontal, Sparkles, Star, Truck, UserRound, UsersRound, X, type LucideIcon } from "lucide-react";
 import { useSearch } from "wouter";
 import { Breadcrumb, COLLECTIONS, PageIntro, Pill, ProductCard, SectionHeading, TrustStrip } from "@/components/store/StoreShell";
 import { BecomeSellerButton } from "@/components/store/BecomeSellerButton";
@@ -28,11 +28,12 @@ export function CollectionCards() {
 export function MakersExhibitionPanels() {
   return <section className="container-wide nk-panels">
     <article className="nk-panel nk-panel--makers">
-      <img src="/naijakoblas-sneakers-detail.jpg" alt="Close-up of hand-stitched leather" loading="lazy" />
+      <img src="/nk/nk-craftsman.jpg" alt="Nigerian leather craftsman at work" loading="lazy" />
       <div><span className="eyebrow">Meet the makers</span><h2>The People Behind the Craft</h2><p>A growing community of Nigerian artisans preserving tradition, creating jobs and shaping the future of African leather.</p><Link href="/makers" className="button button--outline">Meet Our Makers <ArrowRight size={16} /></Link></div>
     </article>
     <article className="nk-panel nk-panel--exhibition">
-      <div><span className="nk-tag"><CalendarDays size={14} aria-hidden="true" /> Proposed for April</span><h2>NaijaKoblas <em>Exhibition 2027</em></h2><p>A planned gathering to showcase Nigeria's leather talent, innovation and craftsmanship to the world.</p><Link href="/exhibition" className="button button--outline">Register Interest <ArrowRight size={16} /></Link></div>
+      <div><span className="nk-tag"><CalendarDays size={14} aria-hidden="true" /> Proposed for April 2027</span><h2>NaijaKoblas Exhibition 2027</h2><p>A gathering that celebrates Nigerian leather craftsmanship, unites makers, brands and partners, and showcases the best of our creativity to the world.</p><Link href="/exhibition" className="button button--dark">Register Your Interest <ArrowRight size={16} /></Link></div>
+      <img src="/nk/nk-hands-to-world.jpg" alt="" loading="lazy" />
     </article>
   </section>;
 }
@@ -42,31 +43,54 @@ export function HomePage() {
   const auth = useAuth();
   const sellerCta = sellerCtaFor(auth.user?.role);
   return <main className="nk-home">
-    <section className="nk-hero">
-      <div className="nk-hero-media" aria-hidden="true"><img src={heroImage} alt="" /></div>
-      <div className="container-wide nk-hero-inner">
-        <div className="nk-hero-copy">
+    <section className="nk-story-hero">
+      <div className="nk-ankara" aria-hidden="true" />
+      <div className="container-wide nk-story-hero-inner">
+        <div className="nk-story-hero-copy">
           <span className="nk-kicker">The Nigerian leather marketplace</span>
-          <h1>Premium Nigerian Leather <em>Craftsmanship</em></h1>
-          <p>Discover expertly crafted leather bags, shoes, belts, jackets and accessories from Nigeria's most talented independent makers.</p>
+          <h1>More Than Leather. <em>A Story of Nigerian Craftsmanship.</em></h1>
+          <p>Every piece has a story. Behind every stitch is a maker, a skill and a tradition worth celebrating.</p>
+          <p>Discover leather goods crafted by Nigerian hands, inspired by our heritage and made to be appreciated around the world.</p>
           <div className="hero-actions">
-            <Link className="button button--dark" href="/products">Shop Collection <ArrowRight size={17} /></Link>
-            <Link className="button button--outline" href={sellerCta[1]}><UserRound size={17} /> {sellerCta[0]}</Link>
+            <Link className="button button--dark" href="/products">Explore the Collection <ArrowRight size={17} /></Link>
+            <Link className="button button--outline nk-gold-outline" href="/about"><PlayCircle size={17} /> Discover Our Story</Link>
           </div>
         </div>
+        <HeroGallery main={{ src: "/nk/nk-tote.jpg", alt: "NaijaKoblas leather tote with tassel" }} side={[["/nk/nk-jacket.jpg", "Black leather jacket"], ["/nk/nk-belt-brown.jpg", "Brown leather belt"], ["/nk/nk-belt-black.jpg", "Black leather belt"]]} />
       </div>
+      <div className="container-wide nk-pillars">
+        <Link href="/about#heritage" className="nk-pillar"><BookOpen size={30} aria-hidden="true" /><div><h3>Our Heritage</h3><p>Explore the history and cultural influences of Nigerian leather craft.</p></div></Link>
+        <Link href="/makers" className="nk-pillar"><UsersRound size={30} aria-hidden="true" /><div><h3>Our Makers</h3><p>Meet the people behind the craft and the stories they bring to life.</p></div></Link>
+        <Link href="/about#impact" className="nk-pillar"><Globe size={30} aria-hidden="true" /><div><h3>Our Vision</h3><p>Taking Nigerian creativity and craftsmanship to the world.</p></div></Link>
+      </div>
+      <TrustStrip />
     </section>
-    <TrustStrip />
-    <section className="container-wide nk-featured">
-      <div className="nk-featured-intro"><span className="eyebrow">Featured collections</span><h2>Explore Nigerian Leather</h2><p>Curated categories of authentic, handcrafted leather goods.</p><Link href="/products" className="nk-text-link">View All Collections <ArrowRight size={15} /></Link></div>
-      <CollectionCards />
+    <section className="nk-cream">
+      <div className="container-wide">
+        <SectionHeading eyebrow="Shop by collection" title="Explore Nigerian Leather" action={<Link href="/products" className="nk-text-link">View All Collections <ArrowRight size={15} /></Link>} />
+        <p className="nk-section-sub">A curated collection of authentic, handcrafted leather goods.</p>
+        <CollectionCards />
+      </div>
     </section>
     <section className="container-wide nk-arrivals">
       <SectionHeading eyebrow="Fresh from the workshop" title="New Arrivals" action={<Link href="/products" className="nk-text-link">Shop all <ArrowRight size={15} /></Link>} />
       {catalogLoading ? <p className="catalog-status">Loading products…</p> : catalogError ? <p className="portal-error">The live catalog is temporarily unavailable. Please try again shortly.</p> : catalogProducts.length ? <div className="product-grid product-grid--featured">{catalogProducts.slice(0, 4).map(product => <ProductCard key={product.id} product={product} />)}</div> : <div className="empty-state"><h3>Our collection is getting ready.</h3><p>Approved products from our makers will appear here soon.</p><Link className="button button--outline" href={sellerCta[1]}>{sellerCta[0]}</Link></div>}
     </section>
+    <section className="container-wide nk-stories" id="stories">
+      <div className="nk-stories-intro"><span className="nk-kicker">Stories & insights</span><h2>From the Workshop</h2><p>Stories, ideas and updates from Nigerian leather makers, designers and the NaijaKoblas community.</p></div>
+      <div className="nk-story-cards">
+        {([["/nk/nk-story-maker.jpg", "Maker story", "From Ideas to Leather: A Maker's Journey"], ["/nk/nk-story-heritage.jpg", "Heritage", "The Nigerian Leather Craft: Past, Present and Future"], ["/nk/nk-story-care.jpg", "Guide", "Caring for Your Leather Goods: Simple, Practical Tips"]] as const).map(([image, tag, title]) => <article className="nk-story-card nk-patterned" key={title}><img src={image} alt="" loading="lazy" /><div><span className="nk-badge">{tag}</span><h3>{title}</h3><small>Coming soon</small></div></article>)}
+      </div>
+    </section>
     <MakersExhibitionPanels />
   </main>;
+}
+
+function HeroGallery({ main, side }: { main: { src: string; alt: string }; side: Array<[string, string]> }) {
+  return <div className="nk-gallery">
+    <img className="nk-gallery-main" src={main.src} alt={main.alt} />
+    <div className="nk-gallery-side">{side.map(([src, alt]) => <img key={src} src={src} alt={alt} loading="lazy" />)}</div>
+  </div>;
 }
 
 export function MakersPage() {
@@ -101,28 +125,36 @@ export function MakersPage() {
 export function ExhibitionPage() {
   const [email, setEmail] = useState("");
   const subscribe = trpc.submissions.subscribe.useMutation();
-  const points: Array<[string, string]> = [
-    ["Showcase", "Makers present their best work to buyers, press and partners in one place."],
-    ["Discover", "Meet the people behind the craft and see techniques up close."],
-    ["Connect", "Build relationships between Nigerian makers, retailers and the wider world."],
+  const auth = useAuth();
+  const sellerCta = sellerCtaFor(auth.user?.role);
+  const points: Array<[LucideIcon, string, string]> = [
+    [Scissors, "See the Craft", "Experience the creativity, skill and detail behind Nigerian-made leather goods."],
+    [UsersRound, "Meet the Hands Behind It", "Discover the journeys of artisans, designers and brands shaping the work."],
+    [Handshake, "Connect Beyond the Exhibition", "Build meaningful relationships with makers, buyers, partners and supporters."],
   ];
-  return <main className="nk-page">
-    <section className="container-wide nk-exhibition-hero">
-      <div>
+  return <main className="nk-page nk-exhibition">
+    <section className="container-wide nk-story-hero-inner nk-exhibition-top">
+      <div className="nk-story-hero-copy">
         <span className="nk-tag"><CalendarDays size={14} aria-hidden="true" /> Proposed for April 2027</span>
         <h1>NaijaKoblas <em>Exhibition 2027</em></h1>
-        <p>A planned gathering to showcase Nigeria's leather talent, innovation and craftsmanship to the world. Dates and venue aren't confirmed yet; register your interest and we'll share updates as plans firm up.</p>
+        <p className="nk-tagline">Every Stitch Has a Story. Every Maker Has a Journey.</p>
+        <span className="nk-rule" aria-hidden="true" />
+        <p>A gathering being planned to celebrate Nigeria's leather craftsmanship, creativity and heritage. Come to discover the makers, the stories behind the products and the possibilities that connect Naija to the world. Dates and venue are not yet confirmed. Register your interest and we'll share updates as plans take shape.</p>
         <form className="nk-waitlist-form" onSubmit={event => { event.preventDefault(); subscribe.mutate({ email, source: "exhibition" }); }}>
-          <label className="nk-input"><span aria-hidden="true">✉</span><input type="email" required value={email} onChange={event => setEmail(event.target.value)} placeholder="Enter your email address" aria-label="Your email address" /></label>
+          <label className="nk-input"><Mail size={16} aria-hidden="true" /><input type="email" required value={email} onChange={event => setEmail(event.target.value)} placeholder="Enter your email address" aria-label="Your email address" /></label>
           <button className="button button--dark" type="submit" disabled={subscribe.isPending}>{subscribe.isSuccess ? "Interest registered" : subscribe.isPending ? "Saving…" : "Register Interest"} <ArrowRight size={16} /></button>
           {subscribe.error && <small className="form-error" role="status">{subscribe.error.message}</small>}
           {subscribe.isSuccess && <small className="form-success" role="status">Thanks! We'll email you when there's news about the exhibition.</small>}
         </form>
       </div>
-      <img src="/naijakoblas-briefcase.jpg" alt="Hand-finished leather briefcase" />
+      <HeroGallery main={{ src: "/nk/nk-exhibition-bag.jpg", alt: "NaijaKoblas leather briefcase" }} side={[["/nk/nk-hands-stitch.jpg", "Hands stitching leather"], ["/nk/nk-leather-rolls.jpg", "Rolls of tanned leather"], ["/nk/nk-brogues.jpg", "Leather brogues"]]} />
     </section>
-    <section className="container-wide nk-points">{points.map(([title, copy], index) => <article key={title}><span>0{index + 1}</span><h2>{title}</h2><p>{copy}</p></article>)}</section>
-    <section className="container-wide nk-maker-band"><UserRound size={28} aria-hidden="true" /><div><h2>Want to exhibit?</h2><p>Makers selling on NaijaKoblas will be first to hear about exhibitor places.</p></div><Link href="/vendor" className="button button--dark">Become a Maker <ArrowRight size={16} /></Link></section>
+    <section className="container-wide nk-exhibition-points">{points.map(([Icon, title, copy]) => <article className="nk-patterned" key={title}><Icon size={40} aria-hidden="true" /><div><h2>{title}</h2><p>{copy}</p></div></article>)}</section>
+    <section className="container-wide"><div className="nk-exhibit-band">
+      <div className="nk-ankara-edge" aria-hidden="true" />
+      <div className="nk-exhibit-copy"><h2>Want to Exhibit?</h2><span className="nk-rule" aria-hidden="true" /><p>Are you a Nigerian leather artisan, designer or brand owner? Be among the first to hear about exhibitor opportunities as NaijaKoblas Exhibition 2027 takes shape.</p></div>
+      <Link href={sellerCta[1]} className="button button--dark">{sellerCta[0] === "Become a Maker" ? "Register Exhibitor Interest" : sellerCta[0]} <ArrowRight size={16} /></Link>
+    </div></section>
   </main>;
 }
 
@@ -379,15 +411,57 @@ export function OrderConfirmationPage() {
 }
 function TimelineItem({ icon, title, copy }: { icon: React.ReactNode; title: string; copy: string }) { return <div className="timeline-item"><div className="timeline-icon">{icon}</div><strong>{title}</strong><p>{copy}</p></div>; }
 
-export function AboutPage() { const auth = useAuth(); const values = [["Authenticity", "Product details are provided by each participating seller."], ["Transparent marketplace", "Listings, seller identity and checkout totals are handled through the marketplace flow."], ["Quality in the details", "We make product descriptions, images and seller information easy to review before purchase."], ["Community", "Building connections between makers and customers across Nigeria."], ["Seller visibility", "Giving participating sellers a place to present their work and manage eligible orders."], ["Cultural pride", "Celebrating Nigerian craftsmanship through considered products and stories."]]; const sellerCta = auth.user?.role === "seller" ? ["Open Seller Workspace", "/seller"] : auth.user?.role === "staff" ? ["Open Staff Portal", "/staff"] : auth.user?.role === "admin" ? ["Open Admin Portal", "/admin"] : ["Become a Seller", "/vendor"]; return <main><PageIntro eyebrow="Our Story" title="Why NaijaKoblas" copy="We're building a marketplace that gives Nigerian craft a clear, considered place to be discovered." /><section className="mission-section container-wide"><div className="mission-number">01</div><div><span className="eyebrow">Our Mission</span><h2>Preserving Heritage<br /><em>Through Commerce</em></h2><p>For generations, Nigerian leather artisans have made objects of beauty and utility. Great craft can be difficult to discover when makers and customers are separated by distance.</p><p>NaijaKoblas is a marketplace for finding participating sellers, reviewing their listings and completing eligible purchases through a server-priced checkout.</p><div className="hero-actions"><Link className="button button--dark" href="/products">Shop Collection <ArrowRight size={17} /></Link><Link className="button button--outline" href={sellerCta[1]}>{sellerCta[0]} <ArrowRight size={17} /></Link></div></div><div className="mission-image"><img src={heroImage} alt="Artisan leather goods" /></div></section><section className="section section--tint"><div className="container-wide"><SectionHeading eyebrow="What We Stand For" title="Our Core Values" /><div className="values-grid">{values.map(([title, copy], index) => <div className="value-card" key={title}><span>0{index + 1}</span><h3>{title}</h3><p>{copy}</p></div>)}</div></div></section></main>; }
-
-const faqs: Array<[string, string]> = [
-  ["How do I track my order?", "Sign in and open My Account. Each paid order shows its status, and sellers add carrier and tracking details when they ship."],
-  ["What's your return policy?", "Contact us with your order reference before sending anything back. Eligibility depends on the item and the seller, and we'll guide you through the next step."],
-  ["How do sellers join?", "Create an account, then click Become a Seller. You can list products straight away; each listing is reviewed by our team before it appears in the shop."],
-  ["Do you ship internationally?", "Not yet. We currently deliver within Nigeria, with standard and express options shown at checkout."],
-  ["How do I pay?", "Checkout runs on Paystack's secure hosted page. Card details are never entered on NaijaKoblas."],
-];
+export function AboutPage() {
+  const auth = useAuth();
+  const sellerCta = sellerCtaFor(auth.user?.role);
+  const values: Array<[LucideIcon, string, string]> = [
+    [Handshake, "Authenticity", "Celebrating the people behind the products."],
+    [Landmark, "Heritage and Identity", "Honouring where the craft comes from."],
+    [Lightbulb, "Creativity and Innovation", "Recognising the ideas shaping tomorrow."],
+    [UsersRound, "Community and Opportunity", "Connecting makers, customers and supporters."],
+    [Award, "Quality and Craftsmanship", "Appreciating the work behind every piece."],
+    [Globe, "Cultural Pride and Global Discovery", "From Naija to the world."],
+  ];
+  return <main className="nk-about">
+    <section className="nk-story-hero">
+      <div className="nk-ankara" aria-hidden="true" />
+      <div className="container-wide nk-story-hero-inner">
+        <div className="nk-story-hero-copy">
+          <span className="nk-kicker">Our story</span>
+          <h1>Why NaijaKoblas? <em>More Than Leather. A Story Worth Telling.</em></h1>
+          <p>A marketplace born from Nigerian creativity, skilled leather artisans and a rich cultural heritage. NaijaKoblas exists to celebrate the craft, connect makers with a wider audience, and help the world discover the people and stories behind every piece.</p>
+          <div className="hero-actions">
+            <Link className="button button--dark" href="/products">Explore the Collection <ArrowRight size={17} /></Link>
+            <Link className="button button--outline nk-gold-outline" href={sellerCta[1]}><PlayCircle size={17} /> {sellerCta[0]}</Link>
+          </div>
+        </div>
+        <HeroGallery main={{ src: "/nk/nk-tote.jpg", alt: "NaijaKoblas leather tote with tassel" }} side={[["/nk/nk-jacket.jpg", "Black leather jacket"], ["/nk/nk-belt-brown.jpg", "Brown leather belt"], ["/nk/nk-wallet-set.jpg", "Leather wallet, key holder and pouch"]]} />
+      </div>
+    </section>
+    <section className="nk-cream" id="heritage">
+      <div className="container-wide nk-mission">
+        <div><span className="nk-kicker">Our mission</span><h2>Preserving Heritage <em>Through Storytelling and Commerce</em></h2></div>
+        <p>NaijaKoblas celebrates Nigerian leather craftsmanship, connects makers with customers at home and abroad, and helps the stories behind the products travel further; turning individual craft into a shared Nigerian story.</p>
+        <img src="/nk/nk-stitching.jpg" alt="Hands stitching a leather piece" loading="lazy" />
+      </div>
+    </section>
+    <section className="container-wide nk-values">
+      <span className="nk-kicker">What we stand for</span><h2>Our Core Values</h2>
+      <div className="nk-values-grid">{values.map(([Icon, title, copy], index) => <article key={title}><span className="nk-value-icon"><Icon size={26} aria-hidden="true" /></span><div><h3><b>0{index + 1}</b> {title}</h3><p>{copy}</p></div></article>)}</div>
+    </section>
+    <section className="nk-cream">
+      <div className="container-wide nk-people">
+        <img src="/nk/nk-craftsman.jpg" alt="Nigerian leather craftsman at work" loading="lazy" />
+        <div><h2>The People Behind the Craft</h2><p>At the heart of NaijaKoblas are Nigerian makers; skilled artisans with unique journeys, bold creativity and a deep commitment to quality. They turn raw leather into expression, livelihood and legacy, one piece at a time.</p><Link href="/makers" className="button button--dark">Meet the Makers <ArrowRight size={16} /></Link></div>
+        <aside className="nk-month"><span className="nk-badge">Coming soon</span><h3>Craftsman of the Month</h3><p>A future spotlight celebrating the maker, story and skill behind one standout creation.</p></aside>
+      </div>
+      <div className="container-wide nk-duo" id="impact">
+        <article className="nk-duo-world"><div><h2>From Nigerian Hands to the World</h2><p>Preserving and celebrating our heritage while creating global visibility for Nigerian leather craftsmanship; sharing our creativity, quality and cultural identity with a wider world.</p></div><img src="/nk/nk-hands-to-world.jpg" alt="NK monogram on leather beside Ankara fabric" loading="lazy" /></article>
+        <article className="nk-duo-exhibition"><div><span className="nk-tag">Proposed for April 2027</span><h2>NaijaKoblas Exhibition 2027</h2><p>A landmark gathering to showcase Nigerian leather talent, stories, innovation and craftsmanship to a global audience.</p><Link href="/exhibition" className="button button--dark">Register Your Interest <ArrowRight size={16} /></Link></div><img src="/nk/nk-exhibition-tag.jpg" alt="" loading="lazy" /></article>
+      </div>
+    </section>
+  </main>;
+}
 
 export function ContactPage() { const contact = trpc.submissions.contact.useMutation(); return <main><PageIntro eyebrow="Say hello" title="Contact Us" copy="Send a message to the NaijaKoblas support inbox. We store it for review; this form does not claim that an email has been sent." /><section className="contact-layout container-wide"><div className="contact-form-card"><h2>Send us a Message</h2><form onSubmit={(event) => { event.preventDefault(); const form = new FormData(event.currentTarget); contact.mutate({ firstName: String(form.get("firstName") ?? ""), lastName: String(form.get("lastName") ?? ""), email: String(form.get("email") ?? ""), subject: String(form.get("subject") ?? ""), message: String(form.get("message") ?? "") }); }}><div className="form-grid"><Field name="firstName" label="FIRST NAME" placeholder="John" required /><Field name="lastName" label="LAST NAME" placeholder="Doe" required /><Field name="email" label="EMAIL" placeholder="john@example.com" type="email" required /><Field name="subject" label="SUBJECT" placeholder="How can we help?" wide required /><label className="form-field form-field--wide"><span>MESSAGE</span><textarea name="message" required minLength={10} placeholder="Tell us more..." rows={5} /></label></div><button className="button button--dark" type="submit" disabled={contact.isPending}>{contact.isSuccess ? "Stored in Support Inbox" : contact.isPending ? "Saving…" : "Send Message"}<ArrowRight size={17} /></button></form>{(contact.error || contact.isSuccess) && <p className={contact.error ? "form-error" : "form-success"} role="status">{contact.error?.message ?? "Thanks — your message is stored for support review."}</p>}</div><div className="contact-details"><span className="eyebrow">Find us here</span><ContactDetail href="mailto:hello@naijakoblas.com" icon={<Mail />} title="Email" copy="hello@naijakoblas.com" sub="For direct support enquiries" /><ContactDetail icon={<Clock3 />} title="Support hours" copy="Monday–Friday" sub="Local support availability may vary" /><ContactDetail icon={<MapPin />} title="Based in" copy="Lagos" sub="Nigeria" /></div></section><section className="faq-section section section--tint" id="faq"><div className="container-wide"><SectionHeading eyebrow="Need to know" title="Frequently Asked Questions" /><div className="faq-grid">{faqs.map(([question, answer]) => <details key={question}><summary>{question}<Plus size={18} /></summary><p>{answer}</p></details>)}</div></div></section></main>; }
 function ContactDetail({ href, icon, title, copy, sub }: { href?: string; icon: React.ReactNode; title: string; copy: string; sub: string }) { const content = <><div className="contact-icon">{icon}</div><div><span>{title}</span><strong>{copy}</strong><small>{sub}</small></div></>; return href ? <a className="contact-detail" href={href} target={href.startsWith("http") ? "_blank" : undefined} rel={href.startsWith("http") ? "noreferrer" : undefined}>{content}</a> : <div className="contact-detail">{content}</div>; }
