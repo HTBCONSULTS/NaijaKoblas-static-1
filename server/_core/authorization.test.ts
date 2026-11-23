@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { User } from "../../drizzle/schema";
-import { canAccessSellerFulfillment, canBootstrapInitialAdmin, canTransitionSellerApplication, hasCapability, requireCapability, requireOwnership, requireRole } from "./authorization";
+import { canAccessSellerFulfillment, isStoreOwnerRole, canBootstrapInitialAdmin, canTransitionSellerApplication, hasCapability, requireCapability, requireOwnership, requireRole } from "./authorization";
 
 function user(role: User["role"]): User {
   const now = new Date();
@@ -28,6 +28,19 @@ describe("account authorization", () => {
     expect(hasCapability(user("staff"), "seller:review")).toBe(true);
     expect(hasCapability(user("staff"), "admin:manage")).toBe(false);
     expect(hasCapability(user("admin"), "admin:manage")).toBe(true);
+    expect(hasCapability(user("admin"), "seller:dashboard")).toBe(true);
+    expect(hasCapability(user("staff"), "seller:dashboard")).toBe(false);
+    expect(hasCapability(user("customer"), "seller:dashboard")).toBe(false);
+  });
+
+  it("lets admins run a store only with an approved application", () => {
+    expect(canAccessSellerFulfillment("admin", "approved")).toBe(true);
+    expect(canAccessSellerFulfillment("admin", null)).toBe(false);
+    expect(canAccessSellerFulfillment("admin", "pending")).toBe(false);
+    expect(isStoreOwnerRole("admin")).toBe(true);
+    expect(isStoreOwnerRole("seller")).toBe(true);
+    expect(isStoreOwnerRole("staff")).toBe(false);
+    expect(isStoreOwnerRole("customer")).toBe(false);
   });
 
   it("denies customer elevation attempts through role and capability guards", () => {

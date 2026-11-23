@@ -1,3 +1,4 @@
+import { isStoreOwnerRole } from "../_core/authorization";
 import type { AccountRole, SellerApplicationStatus } from "../../drizzle/schema";
 import {
   MAX_PRODUCT_IMAGE_BYTES,
@@ -51,7 +52,8 @@ export function canUploadProductImages(input: {
   seller: { userId: number; role: AccountRole; applicationStatus: SellerApplicationStatus | null; storeActive: boolean };
 }): boolean {
   const { actor, seller } = input;
-  if (seller.role !== "seller" || seller.applicationStatus !== "approved" || !seller.storeActive) return false;
-  if (actor.role === "seller") return actor.id === seller.userId;
+  if (!isStoreOwnerRole(seller.role) || seller.applicationStatus !== "approved" || !seller.storeActive) return false;
+  if (actor.id === seller.userId) return true;
+  if (actor.role === "seller") return false;
   return actor.role === "staff" || actor.role === "admin";
 }

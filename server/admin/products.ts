@@ -1,5 +1,6 @@
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { STORE_OWNER_ROLES } from "../_core/authorization";
 import { z } from "zod";
 import {
   accountAuditEvents,
@@ -317,7 +318,7 @@ export const adminProductManagementRouter = router({
       }).from(users)
         .innerJoin(sellerApplications, eq(sellerApplications.userId, users.id))
         .innerJoin(sellerStores, eq(sellerStores.userId, users.id))
-        .where(and(eq(users.id, input.sellerUserId), eq(users.role, "seller"), eq(sellerApplications.status, "approved"), eq(sellerStores.isActive, true)))
+        .where(and(eq(users.id, input.sellerUserId), inArray(users.role, [...STORE_OWNER_ROLES]), eq(sellerApplications.status, "approved"), eq(sellerStores.isActive, true)))
         .limit(1).for("update");
       if (!sellerRows[0]) throw new TRPCError({ code: "BAD_REQUEST", message: "Choose an approved seller with an active store." });
       const id = `prod_${crypto.randomUUID().replaceAll("-", "")}`;

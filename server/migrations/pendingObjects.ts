@@ -153,6 +153,12 @@ export function extractPendingMigrationObjects(
         continue;
       }
 
+      // Reviewed rule: only idempotent, nullable, default-free column additions. Replaying one is a
+      // no-op, so there is no object to pre-detect. Plain ADD COLUMN (without IF NOT EXISTS) still fails closed.
+      if (/^ALTER\s+TABLE\s+(?:"public"\.)?"[^"]+"\s+ADD\s+COLUMN\s+IF\s+NOT\s+EXISTS\s+"[^"]+"\s+(?:varchar\(\d+\)|text|integer|boolean|timestamp\s+with\s+time\s+zone)$/i.test(statement)) {
+        continue;
+      }
+
       match = statement.match(
         /^(?:INSERT\s+INTO|UPDATE|DELETE\s+FROM|MERGE\s+INTO)\s+(?:"public"\.)?"([^"]+)"(?:\s|\(|$)/i,
       );

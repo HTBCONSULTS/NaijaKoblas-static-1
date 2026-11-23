@@ -188,3 +188,16 @@
 .seller-checklist li.is-done span { text-decoration: line-through; text-decoration-color: var(--muted); }
 .admin-ops-section { align-content: start; }
 .seller-notice { color: var(--forest); }
+
+/* Admin <-> seller switch and dashboard background picker */
+.admin-sidebar-switch { display: inline-flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; margin-bottom: 8px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; background: transparent; color: var(--forest); font: inherit; font-size: 13px; font-weight: 700; text-align: left; text-decoration: none; cursor: pointer; }
+.admin-sidebar-switch:hover { border-color: var(--seller-accent, var(--ref-green-bright, #22a35a)); }
+.admin-sidebar-switch:disabled { opacity: .6; cursor: wait; }
+.seller-background { display: grid; gap: 10px; margin: 0; padding: 0; border: 0; }
+.seller-background legend { margin-bottom: 8px; font-size: 12px; font-weight: 700; letter-spacing: .08em; }
+.seller-background-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.seller-background-thumb { display: grid; width: 120px; height: 72px; place-items: center; border: 1px dashed var(--line); border-radius: 10px; background: var(--paper) center / cover no-repeat; color: var(--muted); font-size: 12px; }
+.seller-background-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.seller-background-actions label.button { cursor: pointer; }
+.seller-background-actions .is-disabled { opacity: .55; pointer-events: none; }
+.seller-background small { color: var(--muted); font-size: 12px; line-height: 1.5; }
