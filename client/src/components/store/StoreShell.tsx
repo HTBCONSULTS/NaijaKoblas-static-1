@@ -9,9 +9,9 @@ import { trpc } from "@/lib/trpc";
 
 /** The five storefront collections, shared by the header menu, home page and catalog chips. */
 export const COLLECTIONS: Array<{ name: string; blurb: string; image: string; position?: string; icon: LucideIcon }> = [
-  { name: "Bags", blurb: "Totes, briefcases, weekenders & more", image: "/naijakoblas-tote.jpg", icon: ShoppingBag },
-  { name: "Shoes", blurb: "Formal, casual and custom pairs", image: "/naijakoblas-double-monk.jpg", icon: Footprints },
-  { name: "Belts", blurb: "Everyday and statement belts", image: "/naijakoblas-belt.jpg", icon: BadgeCheck },
+  { name: "Bags", blurb: "Totes, briefcases, weekenders & more", image: "/nk/nk-tote.jpg", icon: ShoppingBag },
+  { name: "Shoes", blurb: "Formal, casual and custom pairs", image: "/nk/nk-brogues.jpg", icon: Footprints },
+  { name: "Belts", blurb: "Everyday and statement belts", image: "/nk/nk-belt-brown.jpg", icon: BadgeCheck },
   { name: "Jackets", blurb: "Timeless leather outerwear", image: "/nk/nk-jacket.jpg", icon: Shirt },
   { name: "Accessories", blurb: "Small pieces that make a statement", image: "/nk/nk-wallet-set.jpg", icon: Wallet },
 ];

@@ -89,7 +89,7 @@ export function HomePage() {
 function HeroGallery({ main, side }: { main: { src: string; alt: string }; side: Array<[string, string]> }) {
   return <div className="nk-gallery">
     <img className="nk-gallery-main" src={main.src} alt={main.alt} />
-    <div className="nk-gallery-side">{side.map(([src, alt]) => <img key={src} src={src} alt={alt} loading="lazy" />)}</div>
+    <div className="nk-gallery-side">{side.map(([src, alt]) => <img key={src} src={src} alt={alt} />)}</div>
   </div>;
 }
 
