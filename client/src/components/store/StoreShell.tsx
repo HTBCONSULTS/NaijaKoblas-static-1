@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { ArrowRight, BadgeCheck, CalendarDays, ChevronDown, Footprints, Heart, House, Instagram, LayoutGrid, Linkedin, Menu, Search, Shirt, ShieldCheck, ShoppingBag, ShoppingCart, Sparkles, Truck, UserRound, UsersRound, Wallet, X, type LucideIcon } from "lucide-react";
+import { ArrowRight, BadgeCheck, CalendarDays, ChevronDown, Facebook, Footprints, Heart, House, Instagram, LayoutGrid, Linkedin, Lock, Mail, Menu, Search, Shirt, ShieldCheck, ShoppingBag, ShoppingCart, Sparkles, Truck, UserRound, UsersRound, Wallet, X, Youtube, type LucideIcon } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useStore, type Product, money } from "@/store";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -12,8 +12,8 @@ export const COLLECTIONS: Array<{ name: string; blurb: string; image: string; po
   { name: "Bags", blurb: "Totes, briefcases, weekenders & more", image: "/naijakoblas-tote.jpg", icon: ShoppingBag },
   { name: "Shoes", blurb: "Formal, casual and custom pairs", image: "/naijakoblas-double-monk.jpg", icon: Footprints },
   { name: "Belts", blurb: "Everyday and statement belts", image: "/naijakoblas-belt.jpg", icon: BadgeCheck },
-  { name: "Jackets", blurb: "Timeless leather outerwear", image: "/naijakoblas-hero.jpg", position: "62% 18%", icon: Shirt },
-  { name: "Accessories", blurb: "Wallets, cardholders, keyholders & more", image: "/naijakoblas-wallet.jpg", icon: Wallet },
+  { name: "Jackets", blurb: "Timeless leather outerwear", image: "/nk/nk-jacket.jpg", icon: Shirt },
+  { name: "Accessories", blurb: "Small pieces that make a statement", image: "/nk/nk-wallet-set.jpg", icon: Wallet },
 ];
 
 export function BrandMark({ light = false }: { light?: boolean }) {
@@ -134,21 +134,22 @@ export function Footer() {
   const auth = useAuth();
   return <footer className="site-footer">
     <div className="container-wide nk-waitlist">
-      <div className="nk-waitlist-title"><UsersRound size={30} aria-hidden="true" /><h2>Be the First to Know</h2></div>
-      <p>Join the NaijaKoblas waitlist for early access to new collections, maker spotlights and exhibition updates.</p>
+      <div className="nk-waitlist-title"><Mail size={30} aria-hidden="true" /><h2>Be Part of the Journey</h2></div>
+      <p>Get stories, new collections, maker highlights and exhibition updates straight to your inbox.</p>
       <form className="nk-waitlist-form" onSubmit={(event) => { event.preventDefault(); subscribe.mutate({ email, source: "waitlist" }); }}>
         <label className="nk-input"><span aria-hidden="true">✉</span><input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Enter your email address" aria-label="Your email address" /></label>
-        <button className="button button--dark" type="submit" disabled={subscribe.isPending}>{subscribe.isSuccess ? "You're on the list" : subscribe.isPending ? "Saving…" : "Join Waitlist"}<ArrowRight size={17} /></button>
+        <button className="button button--dark" type="submit" disabled={subscribe.isPending}>{subscribe.isSuccess ? "You're on the list" : subscribe.isPending ? "Saving…" : "Join the Waitlist"}<ArrowRight size={17} /></button>
         {subscribe.error && <small className="form-error" role="status">{subscribe.error.message}</small>}
       </form>
     </div>
     <div className="container-wide footer-main">
-      <div className="footer-about"><BrandMark light /><p>Connecting craftsmanship, culture and commerce through premium African leather goods.</p><span className="footer-location">Lagos, Nigeria · Made with purpose.</span><div className="social-links"><a href="https://instagram.com" aria-label="Instagram"><Instagram size={17} /></a><a href="https://linkedin.com" aria-label="LinkedIn"><Linkedin size={17} /></a><a href="https://wa.me" aria-label="WhatsApp">WA</a></div></div>
-      <div className="footer-column"><h3>Collections</h3>{COLLECTIONS.map(({ name }) => <Link key={name} href={`/products?category=${name}`}>{name}</Link>)}</div>
-      <div className="footer-column"><h3>Company</h3><Link href="/about">Our Story</Link><Link href="/makers">Our Makers</Link><Link href="/exhibition">Exhibition 2027</Link>{auth.user?.role === "seller" ? <Link href="/seller">Seller Dashboard</Link> : auth.user?.role === "staff" ? <Link href="/staff">Staff Portal</Link> : auth.user?.role === "admin" ? <Link href="/admin">Admin Console</Link> : <Link href="/vendor">Become a Maker</Link>}<Link href="/contact">Contact</Link></div>
-      <div className="footer-column"><h3>Support</h3><Link href="/info/help">Help Center</Link><Link href="/info/shipping">Shipping Info</Link><Link href="/info/returns">Returns</Link></div>
+      <div className="footer-about"><BrandMark light /><p>Connecting Nigerian craftsmanship, culture and creativity with a global audience through authentic, handcrafted leather goods.</p><div className="social-links"><a href="https://youtube.com" aria-label="YouTube"><Youtube size={17} /></a><a href="https://instagram.com" aria-label="Instagram"><Instagram size={17} /></a><a href="https://facebook.com" aria-label="Facebook"><Facebook size={17} /></a><a href="https://linkedin.com" aria-label="LinkedIn"><Linkedin size={17} /></a></div></div>
+      <div className="footer-column"><h3>Shop</h3>{COLLECTIONS.map(({ name }) => <Link key={name} href={`/products?category=${name}`}>{name}</Link>)}</div>
+      <div className="footer-column"><h3>Our Story</h3><Link href="/about#heritage">Our Heritage</Link><Link href="/makers">The Makers</Link><Link href="/#stories">Stories &amp; Insights</Link><Link href="/about#impact">Our Impact</Link></div>
+      <div className="footer-column"><h3>Get Involved</h3>{auth.user?.role === "seller" ? <Link href="/seller">Seller Dashboard</Link> : auth.user?.role === "staff" ? <Link href="/staff">Staff Portal</Link> : auth.user?.role === "admin" ? <Link href="/admin">Admin Console</Link> : <Link href="/vendor">For Makers</Link>}<Link href="/exhibition">Exhibition 2027</Link><Link href="/contact">Partnerships</Link><Link href="/contact">Contact Us</Link></div>
+      <div className="footer-column"><h3>Support</h3><Link href="/info/help">Help Centre</Link><Link href="/info/shipping">Orders &amp; Delivery</Link><Link href="/info/returns">Returns &amp; Refunds</Link><Link href="/contact#faq">FAQs</Link></div>
     </div>
-    <div className="container-wide footer-bottom"><span>© 2026 NaijaKoblas. All rights reserved.</span><span><Link href="/info/privacy">Privacy Policy</Link><Link href="/info/terms">Terms of Service</Link></span></div>
+    <div className="container-wide footer-bottom"><span>© 2026 NaijaKoblas. All rights reserved. <Link href="/info/privacy">Privacy Policy</Link> <Link href="/info/terms">Terms of Service</Link></span><em className="nk-footer-tagline">Built from Culture. Crafted with Pride. Worn with Purpose.</em></div>
   </footer>;
 }
 
@@ -192,9 +193,9 @@ export function ProductCard({ product }: { product: Product }) {
 
 export function TrustStrip() {
   const items: Array<[LucideIcon, string, string]> = [
-    [BadgeCheck, "Reviewed listings", "Every product is approved before it goes live"],
-    [ShieldCheck, "Secure payment", "Card, transfer or USSD via Paystack"],
-    [Truck, "Tracked orders", "Follow delivery from your account"],
+    [ShieldCheck, "Verified Makers", "Curated and reviewed leather products"],
+    [Lock, "Secure Payment", "Card, transfer or USSD via Paystack"],
+    [Truck, "Tracked Delivery", "Follow your order from purchase to delivery"],
   ];
   return <section className="container-wide nk-trust" aria-label="Why shop with NaijaKoblas">{items.map(([Icon, title, copy]) => <div className="nk-trust-item" key={title}><Icon size={28} aria-hidden="true" /><div><h3>{title}</h3><p>{copy}</p></div></div>)}</section>;
 }
