@@ -114,6 +114,7 @@ export function Navbar() {
         <Link href="/makers" className={`nk-nav-mobile-only ${isActive("/makers") ? "active" : ""}`} onClick={close}>Our Makers</Link>
         <Link href="/contact" className={isActive("/contact") ? "active" : ""} onClick={close}>Contact</Link>
         {portal && <Link href={portal[1]} className="nk-nav-portal" onClick={close}>{portal[0]}</Link>}
+        {auth.user?.role === "admin" && (auth.user as { hasStore?: boolean }).hasStore && <Link href="/seller" className="nk-nav-portal" onClick={close}>Seller workspace</Link>}
         {!auth.loading && !auth.isAuthenticated && <Link href="/login" className="nk-nav-mobile-only" onClick={close}>Sign in</Link>}
       </nav>
       <form className="nk-search nk-search--bar" role="search" onSubmit={search}><Search size={16} aria-hidden="true" /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search for leather goods, makers, collections…" aria-label="Search products" /></form>

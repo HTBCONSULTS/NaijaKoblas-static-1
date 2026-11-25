@@ -72,7 +72,13 @@ async function assertSellerFulfillmentAccess(user: User) {
 export const appRouter = router({
   system: systemRouter,
   auth: router({
-    me: publicProcedure.query(opts => opts.ctx.user ? publicAccount(opts.ctx.user) : null),
+    me: publicProcedure.query(async opts => {
+      const user = opts.ctx.user;
+      if (!user) return null;
+      // Admins can also run a store; the site uses this to offer the Admin / Seller switch.
+      const hasStore = user.role === "seller" || (user.role === "admin" && await db.hasActiveSellerStore(user.id));
+      return { ...publicAccount(user), hasStore };
+    }),
   }),
 
   notifications: router({
@@ -213,6 +219,15 @@ export const appRouter = router({
   }),
 
   seller: router({
+    openAdminStore: adminProcedure.mutation(async ({ ctx }) => {
+      try {
+        const { store } = await db.openAdministratorStore(ctx.user.id);
+        return { storeId: store.id };
+      } catch (error) {
+        if (error instanceof db.CommerceValidationError) throw new TRPCError({ code: "BAD_REQUEST", message: error.message });
+        throw error;
+      }
+    }),
     dashboard: sellerProcedure.query(async ({ ctx }) => {
       const application = await db.getSellerApplicationByUserId(ctx.user.id);
       const [store, products, orders, settings] = await Promise.all([

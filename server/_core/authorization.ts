@@ -13,7 +13,8 @@ const capabilitiesByRole: Record<AccountRole, readonly Capability[]> = {
   customer: ["account:read", "seller:apply"],
   seller: ["account:read", "seller:dashboard"],
   staff: ["account:read", "seller:review", "staff:manage"],
-  admin: ["account:read", "seller:review", "staff:manage", "admin:manage"],
+  // Admins can also run their own store (seller:dashboard still requires an approved application).
+  admin: ["account:read", "seller:dashboard", "seller:review", "staff:manage", "admin:manage"],
 };
 
 const sellerApplicationTransitions: Record<SellerApplicationStatus, readonly SellerApplicationStatus[]> = {
@@ -49,8 +50,15 @@ export function canTransitionSellerApplication(from: SellerApplicationStatus, to
   return sellerApplicationTransitions[from].includes(to);
 }
 
+/** Roles that can own a store: sellers, and admins who opened their own store. */
+export const STORE_OWNER_ROLES = ["seller", "admin"] as const satisfies readonly AccountRole[];
+export const isStoreOwnerRole = (role: AccountRole | null | undefined) =>
+  role === "seller" || role === "admin";
+
 export function canAccessSellerFulfillment(role: AccountRole, applicationStatus: SellerApplicationStatus | null) {
-  return role === "seller" || (role === "customer" && applicationStatus === "suspended");
+  return role === "seller"
+    || (role === "admin" && applicationStatus === "approved")
+    || (role === "customer" && applicationStatus === "suspended");
 }
 
 export function requireCapability(user: User | null, capability: Capability) {

@@ -21,6 +21,7 @@ import {
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../server/routers";
 import { trpc } from "@/lib/trpc";
+import { useAuthRuntime } from "@/_core/auth-runtime";
 import { money } from "@/store";
 import { NotificationBell } from "@/components/store/NotificationBell";
 import { SELLER_CATEGORIES, SellerProductCard, listingStage, stageLabels, type ListingStage, type SellerProduct } from "@/components/store/SellerProductCard";
@@ -81,6 +82,11 @@ export function SellerWorkspacePage() {
   const accent = data.settings.accentColor || DEFAULT_ACCENT;
   const pendingCount = data.products.filter(product => listingStage(product) === "pending").length;
   const style = { "--seller-accent": accent } as CSSProperties;
+  const backgroundImageUrl = (data.settings as { backgroundImageUrl?: string | null }).backgroundImageUrl ?? null;
+  const overlay = data.settings.theme === "light" ? "rgba(246,246,241,.88)" : "rgba(11,15,12,.84)";
+  const mainStyle: CSSProperties | undefined = backgroundImageUrl
+    ? { backgroundImage: `linear-gradient(${overlay}, ${overlay}), url("${backgroundImageUrl}")`, backgroundSize: "cover", backgroundPosition: "center", backgroundAttachment: "fixed" }
+    : undefined;
 
   let content: ReactNode;
   if (path === "/seller/products") content = <ProductsSection data={data} onChanged={refresh} />;
@@ -104,10 +110,11 @@ export function SellerWorkspacePage() {
         </nav>
         <div className="admin-sidebar-bottom">
           <Link href="/" className="admin-sidebar-storefront">View storefront <span aria-hidden="true">↗</span></Link>
+          {data.user.role === "admin" && <Link href="/admin" className="admin-sidebar-storefront admin-sidebar-switch">Switch to Admin Console <span aria-hidden="true">⇄</span></Link>}
           <Link href="/account" className="admin-sidebar-storefront">My customer account <span aria-hidden="true">→</span></Link>
         </div>
       </aside>
-      <div className="admin-main">
+      <div className="admin-main" style={mainStyle}>
         <header className="admin-topbar">
           <div className="admin-topbar-title"><span>{storeName.toUpperCase()}</span><h1>{active.label}</h1></div>
           <div className="admin-topbar-tools">
@@ -333,6 +340,7 @@ function SettingsSection({ data, onChanged }: { data: Dashboard; onChanged: (mes
           <button type="button" className={look.theme === "dark" ? "selected" : ""} aria-pressed={look.theme === "dark"} onClick={() => setLook(current => ({ ...current, theme: "dark" }))}><Moon size={15} /> Dark</button>
           <button type="button" className={look.theme === "light" ? "selected" : ""} aria-pressed={look.theme === "light"} onClick={() => setLook(current => ({ ...current, theme: "light" }))}><Sun size={15} /> Light</button>
         </fieldset>
+        <DashboardBackground current={(data.settings as { backgroundImageUrl?: string | null }).backgroundImageUrl ?? null} onChanged={onChanged} />
         <div className="seller-look-preview" data-theme={look.theme} style={{ "--seller-accent": look.accentColor } as CSSProperties} aria-hidden="true">
           <span className="admin-sidebar-monogram">{initialsOf(look.dashboardName || data.store?.displayName || "My store")}</span>
           <div><strong>{look.dashboardName || data.store?.displayName || "My store"}</strong><small>Preview</small></div>
@@ -343,4 +351,53 @@ function SettingsSection({ data, onChanged }: { data: Dashboard; onChanged: (mes
       </form>
     </div>
   </section>;
+}
+
+/** Upload, change or remove the image shown behind the seller workspace. */
+function DashboardBackground({ current, onChanged }: { current: string | null; onChanged: (message?: string) => void }) {
+  const runtime = useAuthRuntime();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const send = async (method: "POST" | "DELETE", file?: File) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const token = await runtime.getToken?.();
+      if (!token) throw new Error("Your secure session is not ready. Sign in again and retry.");
+      const apiBase = import.meta.env.VITE_API_BASE_URL?.trim().replace(/\/$/, "") ?? "";
+      let body: FormData | undefined;
+      if (file) { body = new FormData(); body.append("image", file); }
+      const response = await fetch(`${apiBase}/api/uploads/seller/dashboard-background`, {
+        method,
+        credentials: "include",
+        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+        body,
+      });
+      const payload = await response.json().catch(() => null) as { error?: string } | null;
+      if (!response.ok) throw new Error(payload?.error ?? "The background could not be updated. Please try again.");
+      onChanged(method === "POST" ? "Dashboard background updated." : "Dashboard background removed.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "The background could not be updated.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return <fieldset className="seller-background">
+    <legend>BACKGROUND IMAGE</legend>
+    <div className="seller-background-row">
+      <div className="seller-background-thumb" style={current ? { backgroundImage: `url("${current}")` } : undefined} aria-hidden="true">{!current && <span>None</span>}</div>
+      <div className="seller-background-actions">
+        <label className={`button button--outline${busy || runtime.status !== "ready" ? " is-disabled" : ""}`}>
+          {busy ? "Saving…" : current ? "Change image" : "Upload image"}
+          <input type="file" accept="image/jpeg,image/png,image/webp" hidden disabled={busy || runtime.status !== "ready"}
+            onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void send("POST", file); }} />
+        </label>
+        {current && <button type="button" className="button button--outline" disabled={busy} onClick={() => void send("DELETE")}>Remove</button>}
+      </div>
+    </div>
+    <small>JPEG, PNG or WebP, up to 8 MB. It sits behind your workspace with a soft overlay so text stays readable. Saved straight away.</small>
+    {error && <p className="portal-error" role="alert">{error}</p>}
+  </fieldset>;
 }

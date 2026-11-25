@@ -23,7 +23,7 @@ import {
   type SellerApplicationStatus,
   productStatuses,
 } from "../drizzle/schema";
-import { canBootstrapInitialAdmin, canTransitionSellerApplication } from "./_core/authorization";
+import { canBootstrapInitialAdmin, canTransitionSellerApplication, isStoreOwnerRole, STORE_OWNER_ROLES } from "./_core/authorization";
 import { decideSellerActivation } from "./commerce/seller-activation";
 import { ENV } from "./_core/env";
 import { canTransitionFulfillment, deriveFulfillmentOrderStatus, type FulfillmentStatus } from "./commerce/fulfillment";
@@ -564,7 +564,7 @@ export async function updateSellerStoreProfile(userId: number, input: {
   return database.transaction(async tx => {
     const accountRows = await tx.select({ id: users.id, role: users.role }).from(users)
       .where(eq(users.id, userId)).limit(1).for("update");
-    if (accountRows[0]?.role !== "seller") throw new CommerceValidationError("Only active sellers can update a store profile.");
+    if (!isStoreOwnerRole(accountRows[0]?.role)) throw new CommerceValidationError("Only active sellers can update a store profile.");
     const storeRows = await tx.select().from(sellerStores).where(eq(sellerStores.userId, userId)).limit(1).for("update");
     const store = storeRows[0];
     if (!store?.isActive) throw new CommerceValidationError("This seller store is not active.");
@@ -847,7 +847,7 @@ export async function listActiveSellersForStaff() {
     .innerJoin(sellerApplications, eq(sellerApplications.userId, users.id))
     .innerJoin(sellerStores, eq(sellerStores.userId, users.id))
     .where(and(
-      eq(users.role, "seller"),
+      inArray(users.role, [...STORE_OWNER_ROLES]),
       eq(sellerApplications.status, "approved"),
       eq(sellerStores.isActive, true),
     )).orderBy(asc(sellerStores.displayName)).limit(200);
@@ -866,7 +866,7 @@ export async function createProductForStaff(input: {
       .innerJoin(sellerStores, eq(sellerStores.userId, users.id))
       .where(and(
         eq(users.id, input.sellerUserId),
-        eq(users.role, "seller"),
+        inArray(users.role, [...STORE_OWNER_ROLES]),
         eq(sellerApplications.status, "approved"),
         eq(sellerStores.isActive, true),
       )).limit(1).for("update");
@@ -942,7 +942,7 @@ export async function addSellerProductImages(input: {
     const actorRows = await tx.select({ id: users.id, role: users.role }).from(users)
       .where(eq(users.id, input.actorUserId)).limit(1).for("update");
     const actor = actorRows[0];
-    const isSellerOwner = actor?.role === "seller" && actor.id === input.sellerUserId;
+    const isSellerOwner = isStoreOwnerRole(actor?.role) && actor!.id === input.sellerUserId;
     const isMarketplaceStaff = actor?.role === "staff" || actor?.role === "admin";
     if (!isSellerOwner && !isMarketplaceStaff) throw new CommerceValidationError("The current account cannot upload seller product images.");
 
@@ -951,7 +951,7 @@ export async function addSellerProductImages(input: {
       .innerJoin(sellerStores, eq(sellerStores.userId, users.id))
       .where(eq(users.id, input.sellerUserId)).limit(1).for("update");
     const seller = sellerRows[0];
-    if (seller?.role !== "seller" || seller.status !== "approved" || !seller.storeActive) {
+    if (!isStoreOwnerRole(seller?.role) || seller!.status !== "approved" || !seller!.storeActive) {
       throw new CommerceValidationError("Product images can only be added to an approved seller with an active store.");
     }
 
@@ -1640,4 +1640,98 @@ export async function markAllUserNotificationsRead(userId: number) {
     isNull(userNotifications.readAt),
   )).returning({ id: userNotifications.id });
   return changed.length;
+}
+
+/** Whether this account has an approved application and an active store (used for admins who also sell). */
+export async function hasActiveSellerStore(userId: number) {
+  const database = await requireDb();
+  const rows = await database.select({ id: sellerStores.id }).from(sellerStores)
+    .innerJoin(sellerApplications, eq(sellerApplications.userId, sellerStores.userId))
+    .where(and(eq(sellerStores.userId, userId), eq(sellerStores.isActive, true), eq(sellerApplications.status, "approved")))
+    .limit(1);
+  return rows.length > 0;
+}
+
+/**
+ * Lets an administrator open their own store without giving up the admin role.
+ * Admins approve sellers, so the application is recorded as approved by themselves and audited.
+ */
+export async function openAdministratorStore(adminUserId: number) {
+  const database = await requireDb();
+  return database.transaction(async tx => {
+    const accountRows = await tx.select({ id: users.id, role: users.role, name: users.name, email: users.email })
+      .from(users).where(eq(users.id, adminUserId)).limit(1).for("update");
+    const account = accountRows[0];
+    if (account?.role !== "admin") throw new CommerceValidationError("Only administrators can open a store this way.");
+    if (!account.email) throw new CommerceValidationError("A verified email is required before opening a store.");
+
+    const now = new Date();
+    const applicationRows = await tx.select().from(sellerApplications)
+      .where(eq(sellerApplications.userId, adminUserId)).limit(1).for("update");
+    let application = applicationRows[0] ?? null;
+    if (application?.status === "suspended" || application?.status === "rejected") {
+      throw new CommerceValidationError("This store is paused. Reinstate it from Sellers before opening it again.");
+    }
+    const storeName = defaultSelfServiceStoreName(account.name);
+    if (!application) {
+      const inserted = await tx.insert(sellerApplications).values({
+        userId: adminUserId,
+        legalName: account.name?.trim().slice(0, 160) || "Not provided",
+        email: account.email,
+        businessName: storeName,
+        craftSummary: "Administrator store. Store details can be completed from the seller workspace.",
+        phone: "Not provided",
+        city: "Nigeria",
+        status: "approved",
+        reviewNote: "Opened by an administrator for their own store.",
+        reviewedByUserId: adminUserId,
+        reviewedAt: now,
+      }).returning();
+      application = inserted[0] ?? null;
+    } else if (application.status === "pending") {
+      const updated = await tx.update(sellerApplications).set({ status: "approved", reviewedByUserId: adminUserId, reviewedAt: now, updatedAt: now })
+        .where(eq(sellerApplications.id, application.id)).returning();
+      application = updated[0] ?? null;
+    }
+    if (!application) throw new Error("Administrator store application could not be saved.");
+
+    const storeRows = await tx.select().from(sellerStores).where(eq(sellerStores.userId, adminUserId)).limit(1).for("update");
+    let store = storeRows[0] ?? null;
+    if (store && !store.isActive) {
+      const updated = await tx.update(sellerStores).set({ isActive: true, updatedAt: now }).where(eq(sellerStores.userId, adminUserId)).returning();
+      store = updated[0] ?? null;
+    } else if (!store) {
+      const inserted = await tx.insert(sellerStores).values({
+        userId: adminUserId,
+        displayName: application.businessName || storeName,
+        city: application.city || "Nigeria",
+        description: "Add products from your seller workspace and update these details whenever you are ready.",
+        isActive: true,
+      }).returning();
+      store = inserted[0] ?? null;
+    }
+    if (!store) throw new Error("Administrator store could not be created.");
+
+    await tx.insert(accountAuditEvents).values({
+      actorUserId: adminUserId,
+      targetUserId: adminUserId,
+      eventType: "admin_store_opened",
+      metadata: { applicationId: application.id, storeId: store.id },
+    });
+    return { store, application };
+  });
+}
+
+/** Saves a new dashboard background and returns the previous Cloudinary asset id so it can be removed. */
+export async function setSellerDashboardBackground(userId: number, background: { url: string; publicId: string } | null) {
+  const database = await requireDb();
+  return database.transaction(async tx => {
+    const current = await tx.select({ publicId: sellerDashboardSettings.backgroundPublicId }).from(sellerDashboardSettings)
+      .where(eq(sellerDashboardSettings.userId, userId)).limit(1).for("update");
+    const now = new Date();
+    const values = { backgroundImageUrl: background?.url ?? null, backgroundPublicId: background?.publicId ?? null, updatedAt: now };
+    await tx.insert(sellerDashboardSettings).values({ userId, ...values })
+      .onConflictDoUpdate({ target: sellerDashboardSettings.userId, set: values });
+    return { previousPublicId: current[0]?.publicId ?? null };
+  });
 }

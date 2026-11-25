@@ -89,6 +89,20 @@ describe("pending PostgreSQL migration preflight", () => {
     ).toEqual(["users"]);
   });
 
+  it("accepts idempotent nullable column additions and nothing looser", () => {
+    expect(extractPendingMigrationObjects([{ sql: [
+      'ALTER TABLE "sellerDashboardSettings" ADD COLUMN IF NOT EXISTS "backgroundImageUrl" varchar(500);',
+      'ALTER TABLE "sellerDashboardSettings" ADD COLUMN IF NOT EXISTS "backgroundPublicId" varchar(255);',
+    ] }])).toEqual({ tableNames: [], enumNames: [], indexNames: [], sequenceNames: [], constraints: [], dataMutationTargets: [] });
+    for (const statement of [
+      'ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "flag" boolean NOT NULL;',
+      'ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "flag" boolean DEFAULT true;',
+      'ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "x" text; DROP TABLE "users";',
+    ]) {
+      expect(() => extractPendingMigrationObjects([{ sql: [statement] }])).toThrow("Unsupported PostgreSQL migration statement");
+    }
+  });
+
   it("fails closed on statement grammars that need an explicit reviewed parser rule", () => {
     for (const statement of [
       'ALTER TABLE "users" ADD COLUMN "newColumn" text;',

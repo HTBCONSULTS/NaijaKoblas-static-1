@@ -306,6 +306,8 @@ export const sellerDashboardSettings = pgTable("sellerDashboardSettings", {
   dashboardName: varchar("dashboardName", { length: 60 }),
   accentColor: varchar("accentColor", { length: 7 }).default("#22a35a").notNull(),
   theme: varchar("theme", { length: 8 }).default("dark").notNull(),
+  backgroundImageUrl: varchar("backgroundImageUrl", { length: 500 }),
+  backgroundPublicId: varchar("backgroundPublicId", { length: 255 }),
   updatedAt: updatedAt(),
 }, table => ({
   hexAccent: check("sellerDashboardSettings_hex_accent", sql`${table.accentColor} ~ '^#[0-9a-f]{6}$'`),

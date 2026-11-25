@@ -13,6 +13,7 @@ import {
   MAX_PRODUCT_UPLOAD_REQUEST_BYTES,
 } from "../commerce/product-upload";
 import { resolveClerkUser } from "../_core/context";
+import { isStoreOwnerRole } from "../_core/authorization";
 import { ENV } from "../_core/env";
 import * as db from "../db";
 import { createUploadConcurrencyGate } from "./concurrency";
@@ -217,7 +218,7 @@ async function removeCloudinaryImages(publicIds: string[]) {
   if (failedCount > 0) console.error(`[Uploads] Cloudinary cleanup failed for ${failedCount} asset(s); manual review may be required.`);
 }
 
-async function storeCloudinaryImage(buffer: Buffer, productId: string) {
+async function storeCloudinaryImage(buffer: Buffer, folder: string) {
   return new Promise<{
     secure_url?: string;
     public_id?: string;
@@ -227,7 +228,7 @@ async function storeCloudinaryImage(buffer: Buffer, productId: string) {
   }>((resolve, reject) => {
     const upload = cloudinary.uploader.upload_stream({
       resource_type: "image",
-      folder: `naijakoblas/products/${productId}`,
+      folder,
       unique_filename: true,
       use_filename: false,
       overwrite: false,
@@ -243,7 +244,106 @@ async function storeCloudinaryImage(buffer: Buffer, productId: string) {
   });
 }
 
+const backgroundUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_PRODUCT_IMAGE_BYTES, files: 1, fields: 0, parts: 1, fieldNameSize: 64, headerPairs: 64 },
+  fileFilter(_req, file, callback) {
+    if (!acceptedMimeTypes.has(file.mimetype.toLowerCase())) {
+      callback(new Error("Only JPEG, PNG and WebP images are accepted."));
+      return;
+    }
+    callback(null, true);
+  },
+});
+
+/** Dashboard backgrounds are for accounts running an active store (sellers, and admins with a store). */
+async function requireActiveStoreOwner(req: Request, res: Response, next: NextFunction) {
+  const user = (req as AuthenticatedUploadRequest).appUser;
+  try {
+    if (!user || !isStoreOwnerRole(user.role) || !(await db.hasActiveSellerStore(user.id))) {
+      res.status(403).json({ error: "An active seller store is required to customise the dashboard." });
+      return;
+    }
+    next();
+  } catch {
+    res.status(503).json({ error: "Store access could not be checked. Please try again." });
+  }
+}
+
+const parseBackgroundImage: RequestHandler = (req, res, next) => {
+  backgroundUpload.single("image")(req, res, error => {
+    if (!error) {
+      next();
+      return;
+    }
+    releaseProductUploadSlot(req);
+    res.status(error instanceof multer.MulterError && error.code === "LIMIT_FILE_SIZE" ? 413 : 400)
+      .json({ error: error instanceof multer.MulterError && error.code === "LIMIT_FILE_SIZE" ? "The image must be 8 MB or smaller." : "Upload one JPEG, PNG or WebP image using the image field." });
+  });
+};
+
+function configureCloudinary() {
+  cloudinary.config({
+    cloud_name: ENV.cloudinaryCloudName,
+    api_key: ENV.cloudinaryApiKey,
+    api_secret: ENV.cloudinaryApiSecret,
+    secure: true,
+  });
+}
+
+function registerDashboardBackgroundRoutes(app: Express) {
+  const path = "/api/uploads/seller/dashboard-background";
+  app.post(path, requireVerifiedMarketplaceUser, requireActiveStoreOwner, requireCloudinaryStorage, rateLimitProductUploads,
+    rejectOversizedMultipartRequest, limitConcurrentProductUploads, parseBackgroundImage,
+    async (req: Request, res: Response) => {
+      const user = (req as AuthenticatedUploadRequest).appUser!;
+      const file = (req as Request & { file?: Express.Multer.File }).file;
+      let publicId: string | undefined;
+      try {
+        if (!file || file.size <= 0) {
+          res.status(400).json({ error: "Choose an image to upload." });
+          return;
+        }
+        if (!detectProductImageFormat(file.mimetype, file.buffer)) {
+          res.status(400).json({ error: "Image content did not match an accepted JPEG, PNG or WebP file." });
+          return;
+        }
+        configureCloudinary();
+        const result = await storeCloudinaryImage(file.buffer, `naijakoblas/dashboards/${user.id}`);
+        publicId = result.public_id;
+        if (!publicId || !result.secure_url) throw new Error("Cloudinary image metadata was incomplete.");
+        const url = new URL(result.secure_url);
+        if (url.protocol !== "https:" || !(url.hostname === "res.cloudinary.com" || url.hostname.endsWith(".cloudinary.com"))) {
+          throw new Error("Cloudinary returned an untrusted asset URL.");
+        }
+        const { previousPublicId } = await db.setSellerDashboardBackground(user.id, { url: result.secure_url, publicId });
+        if (previousPublicId && previousPublicId !== publicId) await removeCloudinaryImages([previousPublicId]);
+        res.status(201).json({ backgroundImageUrl: result.secure_url });
+      } catch {
+        if (publicId) await removeCloudinaryImages([publicId]);
+        console.warn("[Uploads] Dashboard background upload failed.");
+        res.status(502).json({ error: "The background image could not be saved. Please try again." });
+      } finally {
+        releaseProductUploadSlot(req);
+      }
+    });
+  app.delete(path, requireVerifiedMarketplaceUser, requireActiveStoreOwner, requireCloudinaryStorage, async (req: Request, res: Response) => {
+    const user = (req as AuthenticatedUploadRequest).appUser!;
+    try {
+      const { previousPublicId } = await db.setSellerDashboardBackground(user.id, null);
+      if (previousPublicId) {
+        configureCloudinary();
+        await removeCloudinaryImages([previousPublicId]);
+      }
+      res.status(200).json({ backgroundImageUrl: null });
+    } catch {
+      res.status(502).json({ error: "The background image could not be removed. Please try again." });
+    }
+  });
+}
+
 export function registerProductUploadRoutes(app: Express) {
+  registerDashboardBackgroundRoutes(app);
   app.post(
     "/api/uploads/products/:productId/images",
     requireVerifiedMarketplaceUser,
@@ -285,7 +385,7 @@ export function registerProductUploadRoutes(app: Express) {
         });
 
         for (const [index, file] of files.entries()) {
-          const result = await storeCloudinaryImage(file.buffer, productId);
+          const result = await storeCloudinaryImage(file.buffer, `naijakoblas/products/${productId}`);
           const publicId = result.public_id;
           const secureUrl = result.secure_url;
           if (!publicId || !secureUrl || !Number.isSafeInteger(result.width) || !Number.isSafeInteger(result.height)) {

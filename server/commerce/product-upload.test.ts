@@ -40,4 +40,12 @@ describe("product upload security", () => {
     expect(canUploadProductImages({ actor: { id: 30, role: "staff" }, seller: { ...sellerTarget, storeActive: false } })).toBe(false);
     expect(canUploadProductImages({ actor: { id: 20, role: "customer" }, seller: sellerTarget })).toBe(false);
   });
+
+  it("treats an admin's own active store like a seller store", () => {
+    const adminStore = { ...sellerTarget, userId: 31, role: "admin" as const };
+    expect(canUploadProductImages({ actor: { id: 31, role: "admin" }, seller: adminStore })).toBe(true);
+    expect(canUploadProductImages({ actor: { id: 10, role: "seller" }, seller: adminStore })).toBe(false);
+    expect(canUploadProductImages({ actor: { id: 31, role: "admin" }, seller: { ...adminStore, applicationStatus: null } })).toBe(false);
+    expect(canUploadProductImages({ actor: { id: 30, role: "staff" }, seller: { ...sellerTarget, userId: 30, role: "staff" } })).toBe(false);
+  });
 });

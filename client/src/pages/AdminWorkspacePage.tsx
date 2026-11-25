@@ -48,6 +48,23 @@ function formatDate(value: string | Date) {
   return new Intl.DateTimeFormat("en-NG", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 }
 
+/** Admins keep their admin role and can also run a store: open it once, then switch between workspaces. */
+function AdminStoreSwitch({ hasStore }: { hasStore: boolean }) {
+  const [, navigate] = useLocation();
+  const utils = trpc.useUtils();
+  const open = trpc.seller.openAdminStore.useMutation({
+    onSuccess: async () => { await utils.auth.me.invalidate(); navigate("/seller/settings"); },
+  });
+  if (hasStore) return <Link href="/seller" className="admin-sidebar-storefront admin-sidebar-switch">Switch to Seller Workspace <span aria-hidden="true">⇄</span></Link>;
+  return <>
+    <button type="button" className="admin-sidebar-storefront admin-sidebar-switch" disabled={open.isPending}
+      onClick={() => { if (window.confirm("Open your own store? Your account stays an administrator and you can switch between Admin Console and Seller Workspace.")) open.mutate(); }}>
+      {open.isPending ? "Opening your store…" : "Open my store"} <span aria-hidden="true">＋</span>
+    </button>
+    {open.error && <small className="portal-error" role="alert">{open.error.message}</small>}
+  </>;
+}
+
 function AdminSectionShell({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   const account = trpc.auth.me.useQuery(undefined, { retry: false });
@@ -76,6 +93,7 @@ function AdminSectionShell({ children }: { children: ReactNode }) {
           })}
         </nav>
         <div className="admin-sidebar-bottom">
+          <AdminStoreSwitch hasStore={Boolean(account.data?.hasStore)} />
           <Link href="/" className="admin-sidebar-storefront">View storefront <span aria-hidden="true">↗</span></Link>
           <small>Protected marketplace operations</small>
         </div>
