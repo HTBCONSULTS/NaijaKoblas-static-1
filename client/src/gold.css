@@ -206,6 +206,7 @@ html.dark body { background: #0b1f16; }
 
 @media (max-width: 1180px) {
   .nk-search--bar { display: none; }
+  .nk-nav { gap: 18px; }
   .nk-actions { margin-left: auto; }
   .nk-featured { grid-template-columns: minmax(0, 1fr); }
   .nk-collections { grid-template-columns: repeat(5, minmax(180px, 1fr)); overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 6px; }

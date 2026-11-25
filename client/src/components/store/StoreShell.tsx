@@ -112,7 +112,7 @@ export function Navbar() {
         <Link href="/vendor" className={isActive("/vendor") ? "active" : ""} onClick={close}>For Makers</Link>
         <Link href="/exhibition" className={isActive("/exhibition") ? "active" : ""} onClick={close}>Exhibition 2027</Link>
         <Link href="/makers" className={`nk-nav-mobile-only ${isActive("/makers") ? "active" : ""}`} onClick={close}>Our Makers</Link>
-        <Link href="/contact" className={`nk-nav-mobile-only ${isActive("/contact") ? "active" : ""}`} onClick={close}>Contact</Link>
+        <Link href="/contact" className={isActive("/contact") ? "active" : ""} onClick={close}>Contact</Link>
         {portal && <Link href={portal[1]} className="nk-nav-portal" onClick={close}>{portal[0]}</Link>}
         {!auth.loading && !auth.isAuthenticated && <Link href="/login" className="nk-nav-mobile-only" onClick={close}>Sign in</Link>}
       </nav>
