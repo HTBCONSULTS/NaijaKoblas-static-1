@@ -17,6 +17,7 @@ import {
 import { canTransitionFulfillment, deriveFulfillmentOrderStatus, fulfillmentStatuses, type FulfillmentStatus } from "../commerce/fulfillment";
 import { getDb } from "../db";
 import { ENV } from "../_core/env";
+import { activeCheckoutProvider } from "../payments/provider";
 import { adminProcedure, router } from "../_core/trpc";
 
 const LOW_STOCK_THRESHOLD = 5;
@@ -438,12 +439,18 @@ export function getAdminProviderSettings() {
         configured: paystackConfigured,
         supportedOperations: ["hosted_checkout", "verify_payment", "reconcile_payment"] as const,
       },
+      stripe: {
+        configured: Boolean(ENV.stripeSecretKey && ENV.appBaseUrl),
+        webhookConfigured: Boolean(ENV.stripeWebhookSecret),
+        supportedOperations: ["hosted_checkout", "verify_payment", "reconcile_payment"] as const,
+      },
       cloudinary: {
         configured: cloudinaryConfigured,
         supportedOperations: ["product_image_upload"] as const,
       },
     },
     settings: {
+      activePaymentProvider: activeCheckoutProvider(),
       production: ENV.isProduction,
       databaseConfigured: Boolean(ENV.databaseUrl),
     },

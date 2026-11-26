@@ -6,6 +6,10 @@ export const ENV = {
   get databaseUrl() { return process.env.DATABASE_URL ?? ""; },
   get databaseUrlUnpooled() { return process.env.DATABASE_URL_UNPOOLED ?? ""; },
   get paystackSecretKey() { return process.env.PAYSTACK_SECRET_KEY ?? ""; },
+  get stripeSecretKey() { return process.env.STRIPE_SECRET_KEY ?? ""; },
+  get stripeWebhookSecret() { return process.env.STRIPE_WEBHOOK_SECRET ?? ""; },
+  // "stripe" or "paystack". When unset, Stripe is used once STRIPE_SECRET_KEY is configured.
+  get paymentProvider() { return (process.env.PAYMENT_PROVIDER ?? "").trim().toLowerCase(); },
   get appBaseUrl() { return process.env.APP_BASE_URL ?? ""; },
   get cloudinaryCloudName() { return process.env.CLOUDINARY_CLOUD_NAME ?? ""; },
   get cloudinaryApiKey() { return process.env.CLOUDINARY_API_KEY ?? ""; },

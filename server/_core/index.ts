@@ -49,7 +49,7 @@ async function startServer() {
   app.use(express.json({
     limit: "1mb",
     verify(req, _res, buffer) {
-      if (req.url?.startsWith("/api/payments/paystack/webhook")) {
+      if (req.url?.startsWith("/api/payments/paystack/webhook") || req.url?.startsWith("/api/payments/stripe/webhook")) {
         (req as typeof req & { rawBody?: Buffer }).rawBody = Buffer.from(buffer);
       }
     },
