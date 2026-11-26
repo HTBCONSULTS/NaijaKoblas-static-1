@@ -1,6 +1,6 @@
 # NaijaKoblas
 
-NaijaKoblas is a Nigerian leather-goods multi-vendor marketplace. The stack is React/Vite, Express/tRPC, Neon PostgreSQL, Clerk email/password identity and Paystack-hosted checkout. Live payments, vendor splits and payouts remain disabled.
+NaijaKoblas is a Nigerian leather-goods multi-vendor marketplace. The stack is React/Vite, Express/tRPC, Neon PostgreSQL, Clerk email/password identity and Stripe-hosted checkout (Paystack kept as a fallback provider). Live payments, vendor splits and payouts remain disabled.
 
 ## Test deployment status
 
@@ -10,7 +10,8 @@ NaijaKoblas is a Nigerian leather-goods multi-vendor marketplace. The stack is R
 - **Administrator portal (role-protected):** [https://naijakoblas-static.vercel.app/admin](https://naijakoblas-static.vercel.app/admin)
 - **API host:** [https://naijakoblas-static.fly.dev](https://naijakoblas-static.fly.dev)
 - **Health:** `https://naijakoblas-static.vercel.app/api/health`
-- **Paystack webhook path for future test setup:** `https://naijakoblas-static.vercel.app/api/payments/paystack/webhook`
+- **Stripe webhook endpoint:** `https://naijakoblas-static.vercel.app/api/payments/stripe/webhook`
+- **Paystack webhook path (fallback provider):** `https://naijakoblas-static.vercel.app/api/payments/paystack/webhook`
 
 Feature commit `70eec80` is included in READY Vercel production. Fly release v11 serves image `ops-70eec80`; its release command and migration pre-release completed successfully. Direct Fly and Vercel-proxied `/api/health` and `/api/auth/status` returned HTTP 200. The production `/`, `/login`, `/signup`, `/admin`, `/admin/catalog`, `/admin/audit`, `/vendor`, and `/account` routes returned HTTP 200, and the deployed bundle contains role-aware navigation, the admin Catalog/Audit workspace, one-click seller activation and standard admin-login flows.
 
@@ -57,7 +58,19 @@ A checked-in local-only integration command covers fresh setup with an unsafe am
 - `pnpm db:push` generates reviewed Drizzle SQL, then invokes `pnpm db:migrate`; it does not bypass the custom runner.
 - `pnpm test:migrations:integration` runs the real compiled runner against a **disposable localhost PostgreSQL** maintenance URL. Set `MIGRATIONS_TEST_DATABASE_URL` to a local `/postgres` URL for an account with `CREATEDB`; remote hosts are rejected.
 
-Cloudinary credentials, the Clerk secret and Paystack secret are server-only. Optional Manus Maps/service values are unrelated to login. The static bundle must never contain a server credential.
+Cloudinary credentials, the Clerk secret and the Stripe/Paystack secrets are server-only. Optional Manus Maps/service values are unrelated to login. The static bundle must never contain a server credential.
+
+## Stripe checkout
+
+New orders use Stripe Checkout when `PAYMENT_PROVIDER=stripe` (or when `PAYMENT_PROVIDER` is unset and `STRIPE_SECRET_KEY` exists). To enable it:
+
+1. In the Stripe Dashboard (test mode first), copy the secret key and set Fly secrets: `fly secrets set STRIPE_SECRET_KEY=sk_test_... PAYMENT_PROVIDER=stripe`. `APP_BASE_URL` must already be set; it builds the success/cancel URLs.
+2. Add a webhook endpoint `https://<APP_BASE_URL host>/api/payments/stripe/webhook` with the events `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed` and `checkout.session.expired`, then `fly secrets set STRIPE_WEBHOOK_SECRET=whsec_...`.
+3. Deploy so migration `0006_stripe_checkout` runs, then place a test order with a Stripe test card and confirm it shows as paid in the account and admin pages (Admin → Settings shows Stripe readiness and the active provider).
+
+The account must be able to charge NGN. Stripe does not open standard accounts for businesses based in Nigeria; use an eligible account (see [backend research](backend-research.md)).
+
+How it works: the server creates an NGN Checkout Session with an idempotency key derived from the payment reference, so a retried checkout reuses the same session instead of charging twice. A payment is confirmed only when Stripe reports `payment_status=paid` for the stored session with the matching reference, amount and NGN currency, either via the signed webhook or when the customer returns to `/order-confirmation`. Expired or failed sessions release reserved stock. Stripe session state is stored in the separate `stripeCheckoutSessions` table so the fingerprint-verified baseline `paymentTransactions` table and its `payment_provider` enum stay unchanged; a row in that table marks a payment as Stripe-collected.
 
 ## Paystack checkout and seller payouts
 

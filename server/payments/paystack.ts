@@ -23,7 +23,7 @@ function safeReference(reference: string) {
   if (!/^[A-Za-z0-9.=\-]{1,64}$/.test(reference)) throw new Error("Invalid Paystack transaction reference.");
 }
 
-function appOrigin() {
+export function appOrigin() {
   if (!ENV.appBaseUrl) throw new Error("APP_BASE_URL is not configured.");
   let base: URL;
   try {
@@ -41,7 +41,7 @@ function callbackUrl() {
   return new URL("/order-confirmation", appOrigin()).toString();
 }
 
-function cancelActionUrl(deliveryMethod: "standard" | "express") {
+export function cancelActionUrl(deliveryMethod: "standard" | "express") {
   const url = new URL("/checkout", appOrigin());
   url.searchParams.set("delivery", deliveryMethod);
   url.searchParams.set("cancelled", "true");

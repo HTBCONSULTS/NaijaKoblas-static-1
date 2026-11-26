@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   boolean,
   check,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -257,6 +258,26 @@ export const paymentTransactions = pgTable("paymentTransactions", {
   ngnCurrency: check("paymentTransactions_ngn_currency", sql`${table.currency} = 'NGN'`),
 }));
 
+/**
+ * Stripe Checkout state for a payment. Kept in its own table so the baseline
+ * paymentTransactions table (and its fingerprint-verified enum) stays unchanged.
+ * A row here means the payment is collected by Stripe; no row means Paystack.
+ */
+export const stripeCheckoutSessions = pgTable("stripeCheckoutSessions", {
+  paymentTransactionId: integer("paymentTransactionId").primaryKey(),
+  sessionId: varchar("sessionId", { length: 255 }),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+}, table => ({
+  paymentFk: foreignKey({
+    name: "stripeCheckoutSessions_payment_fk",
+    columns: [table.paymentTransactionId],
+    foreignColumns: [paymentTransactions.id],
+  }).onDelete("restrict"),
+  sessionIdUnique: uniqueIndex("stripeCheckoutSessions_sessionId_unique")
+    .on(table.sessionId).where(sql`${table.sessionId} IS NOT NULL`),
+}));
+
 /** Public support messages are durable inbox records; no email delivery is implied. */
 export const contactMessages = pgTable("contactMessages", {
   id: serial("id").primaryKey(),
@@ -334,6 +355,7 @@ export type SellerProductImageFormat = (typeof sellerProductImageFormats)[number
 export type Order = typeof orders.$inferSelect;
 export type OrderItem = typeof orderItems.$inferSelect;
 export type PaymentTransaction = typeof paymentTransactions.$inferSelect;
+export type StripeCheckoutSession = typeof stripeCheckoutSessions.$inferSelect;
 export type ContactMessage = typeof contactMessages.$inferSelect;
 export type NewsletterSubscription = typeof newsletterSubscriptions.$inferSelect;
 export type ListingReviewStatus = (typeof listingReviewStatuses)[number];

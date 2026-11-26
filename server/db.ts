@@ -9,6 +9,7 @@ import {
   orders,
   orderItems,
   paymentTransactions,
+  stripeCheckoutSessions,
   sellerProductImages,
   sellerProductReviews,
   sellerDashboardSettings,
@@ -26,6 +27,7 @@ import {
 import { canBootstrapInitialAdmin, canTransitionSellerApplication, isStoreOwnerRole, STORE_OWNER_ROLES } from "./_core/authorization";
 import { decideSellerActivation } from "./commerce/seller-activation";
 import { ENV } from "./_core/env";
+import type { PaymentProvider } from "./payments/provider";
 import { canTransitionFulfillment, deriveFulfillmentOrderStatus, type FulfillmentStatus } from "./commerce/fulfillment";
 import { checkoutFingerprint } from "./commerce/idempotency";
 import { calculateCheckoutAmounts } from "./commerce/pricing";
@@ -120,8 +122,9 @@ async function findExistingPendingCheckout(
   idempotencyKey: string,
   fingerprint: string,
 ) {
-  const previous = await database.select({ order: orders, payment: paymentTransactions })
+  const previous = await database.select({ order: orders, payment: paymentTransactions, stripe: stripeCheckoutSessions })
     .from(orders).innerJoin(paymentTransactions, eq(paymentTransactions.orderId, orders.id))
+    .leftJoin(stripeCheckoutSessions, eq(stripeCheckoutSessions.paymentTransactionId, paymentTransactions.id))
     .where(and(
       eq(orders.customerUserId, customerUserId),
       eq(orders.idempotencyKey, idempotencyKey),
@@ -138,6 +141,7 @@ async function findExistingPendingCheckout(
     order: record.order,
     paymentReference: record.payment.reference,
     authorizationUrl: record.payment.checkoutUrl,
+    provider: (record.stripe ? "stripe" : "paystack") as PaymentProvider,
     existing: true as const,
   };
 }
@@ -1160,7 +1164,8 @@ export type CreateOrderInput = CustomerProfileInput & {
 };
 
 /** Prices, seller ownership, inventory, shipping, and snapshots are resolved server-side. */
-export async function createPendingOrder(customerUserId: number, input: CreateOrderInput) {
+/** `provider` applies only to a new order; a retried checkout keeps the provider it started with. */
+export async function createPendingOrder(customerUserId: number, input: CreateOrderInput, provider: PaymentProvider = "paystack") {
   const database = await requireDb();
   const fingerprint = checkoutFingerprint(input);
   const previous = await findExistingPendingCheckout(database, customerUserId, input.idempotencyKey, fingerprint);
@@ -1280,21 +1285,26 @@ export async function createPendingOrder(customerUserId: number, input: CreateOr
       size: line.size,
       lineTotalKobo,
     })));
-    await tx.insert(paymentTransactions).values({
+    // paymentTransactions.provider is a baseline enum that only lists "paystack"; the
+    // stripeCheckoutSessions row is what marks a payment as collected by Stripe.
+    const payment = (await tx.insert(paymentTransactions).values({
       orderId: order.id,
       provider: "paystack",
       reference,
       status: "pending",
       amountKobo: totalKobo,
       currency: "NGN",
-    });
+    }).returning({ id: paymentTransactions.id }))[0]!;
+    if (provider === "stripe") {
+      await tx.insert(stripeCheckoutSessions).values({ paymentTransactionId: payment.id });
+    }
     await tx.insert(accountAuditEvents).values({
       actorUserId: customerUserId,
       targetUserId: customerUserId,
       eventType: "order_created_pending_payment",
       metadata: { orderReference: reference, lineCount: orderLines.length, totalKobo },
     });
-    return { order, paymentReference: reference, authorizationUrl: null, existing: false as const };
+    return { order, paymentReference: reference, authorizationUrl: null, provider, existing: false as const };
     });
   } catch (error) {
     if (!isIdempotencyUniqueViolation(error)) throw error;
@@ -1309,18 +1319,42 @@ export async function getOrderItemsForCheckout(orderId: number) {
   return database.select().from(orderItems).where(eq(orderItems.orderId, orderId)).orderBy(orderItems.id);
 }
 
-export async function savePaystackCheckoutUrl(input: {
+export async function saveHostedCheckout(input: {
   reference: string;
   checkoutUrl: string;
+  stripeSessionId?: string;
 }) {
   const database = await requireDb();
-  const result = await database.update(paymentTransactions).set({
-    checkoutUrl: input.checkoutUrl,
-    updatedAt: new Date(),
-  })
-    .where(and(eq(paymentTransactions.reference, input.reference), eq(paymentTransactions.status, "pending")))
-    .returning({ id: paymentTransactions.id });
-  return result.length === 1;
+  return database.transaction(async tx => {
+    const result = await tx.update(paymentTransactions).set({
+      checkoutUrl: input.checkoutUrl,
+      updatedAt: new Date(),
+    })
+      .where(and(eq(paymentTransactions.reference, input.reference), eq(paymentTransactions.status, "pending")))
+      .returning({ id: paymentTransactions.id });
+    if (result.length !== 1) return false;
+    if (input.stripeSessionId) {
+      const updated = await tx.update(stripeCheckoutSessions).set({ sessionId: input.stripeSessionId, updatedAt: new Date() })
+        .where(eq(stripeCheckoutSessions.paymentTransactionId, result[0]!.id))
+        .returning({ id: stripeCheckoutSessions.paymentTransactionId });
+      if (updated.length !== 1) throw new Error("Stripe checkout state is missing for this payment.");
+    }
+    return true;
+  });
+}
+
+/** Which provider collects a payment, and its Stripe Checkout Session when there is one. */
+export function paymentProviderOf(record: { stripe: { sessionId: string | null } | null }) {
+  return {
+    provider: (record.stripe ? "stripe" : "paystack") as PaymentProvider,
+    stripeSessionId: record.stripe?.sessionId ?? null,
+  };
+}
+
+async function providerForPayment(executor: Pick<Database, "select">, paymentTransactionId: number): Promise<PaymentProvider> {
+  const rows = await executor.select({ id: stripeCheckoutSessions.paymentTransactionId }).from(stripeCheckoutSessions)
+    .where(eq(stripeCheckoutSessions.paymentTransactionId, paymentTransactionId)).limit(1);
+  return rows.length ? "stripe" : "paystack";
 }
 
 export async function listCustomerOrders(customerUserId: number) {
@@ -1351,8 +1385,9 @@ export async function getCustomerOrder(customerUserId: number, reference: string
 
 export async function getPaymentForCustomer(customerUserId: number, reference: string) {
   const database = await requireDb();
-  const result = await database.select({ payment: paymentTransactions, order: orders })
+  const result = await database.select({ payment: paymentTransactions, order: orders, stripe: stripeCheckoutSessions })
     .from(paymentTransactions).innerJoin(orders, eq(paymentTransactions.orderId, orders.id))
+    .leftJoin(stripeCheckoutSessions, eq(stripeCheckoutSessions.paymentTransactionId, paymentTransactions.id))
     .where(and(eq(paymentTransactions.reference, reference), eq(orders.customerUserId, customerUserId)))
     .limit(1);
   return result[0];
@@ -1360,8 +1395,9 @@ export async function getPaymentForCustomer(customerUserId: number, reference: s
 
 export async function getPaymentByReference(reference: string) {
   const database = await requireDb();
-  const result = await database.select({ payment: paymentTransactions, order: orders })
+  const result = await database.select({ payment: paymentTransactions, order: orders, stripe: stripeCheckoutSessions })
     .from(paymentTransactions).innerJoin(orders, eq(paymentTransactions.orderId, orders.id))
+    .leftJoin(stripeCheckoutSessions, eq(stripeCheckoutSessions.paymentTransactionId, paymentTransactions.id))
     .where(eq(paymentTransactions.reference, reference)).limit(1);
   return result[0];
 }
@@ -1419,7 +1455,7 @@ export async function markPaymentSucceeded(input: {
       eventType: "payment_verified",
       metadata: {
         orderReference: record.order.reference,
-        provider: "paystack",
+        provider: await providerForPayment(tx, record.payment.id),
         paymentReference: record.payment.reference,
         source: input.actorUserId ? "admin_reconciliation" : "provider_verification",
       },
@@ -1486,7 +1522,7 @@ export async function markPaymentFailed(reference: string, actorUserId?: number)
       eventType: "payment_failed_stock_released",
       metadata: {
         orderReference: record.order.reference,
-        provider: "paystack",
+        provider: await providerForPayment(tx, record.payment.id),
         source: actorUserId ? "admin_reconciliation" : "provider_verification",
       },
     });

@@ -7,8 +7,7 @@ import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router, sellerProcedure, staffProcedure } from "./_core/trpc";
 import { fulfillmentStatuses } from "./commerce/fulfillment";
 import * as db from "./db";
-import { initializePaystackCheckout, verifyPaystackTransaction } from "./payments/paystack";
-import { classifyPaystackTransaction } from "./payments/reconciliation";
+import { activeCheckoutProvider, checkProviderPayment, isProviderConfigured, PAYMENT_PROVIDER_LABELS, startHostedCheckout } from "./payments/provider";
 import { productStatuses } from "../drizzle/schema";
 import { adminListingReviewRouter, adminProductManagementRouter } from "./admin/products";
 import { adminOperationsRouter } from "./admin/operations";
@@ -131,12 +130,13 @@ export const appRouter = router({
   orders: router({
     mine: protectedProcedure.query(({ ctx }) => db.listCustomerOrders(ctx.user.id)),
     createCheckout: protectedProcedure.input(checkoutInput).mutation(async ({ ctx, input }) => {
-      if (!ENV.paystackSecretKey || !ENV.appBaseUrl) {
-        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Paystack hosted checkout is not configured yet." });
+      const provider = activeCheckoutProvider();
+      if (!isProviderConfigured(provider)) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: `${PAYMENT_PROVIDER_LABELS[provider]} hosted checkout is not configured yet.` });
       }
       let created: Awaited<ReturnType<typeof db.createPendingOrder>>;
       try {
-        created = await db.createPendingOrder(ctx.user.id, input);
+        created = await db.createPendingOrder(ctx.user.id, input, provider);
       } catch (error) {
         if (error instanceof db.CommerceValidationError) {
           const inactive = error.message.includes("no longer active");
@@ -150,25 +150,29 @@ export const appRouter = router({
         return { orderReference: created.order.reference, reference: created.paymentReference, authorizationUrl: created.authorizationUrl };
       }
 
+      // A retried checkout keeps the provider it was created with, even if the active one changed.
+      if (!isProviderConfigured(created.provider)) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: `${PAYMENT_PROVIDER_LABELS[created.provider]} hosted checkout is not configured yet.` });
+      }
       try {
-        const initialized = await initializePaystackCheckout({
+        const started = await startHostedCheckout(created.provider, {
           reference: created.paymentReference,
           orderReference: created.order.reference,
           email: created.order.email,
           amountKobo: created.order.totalKobo,
-          channels: ["card", "bank_transfer", "ussd"],
           deliveryMethod: created.order.deliveryMethod,
         });
-        const saved = await db.savePaystackCheckoutUrl({
+        const saved = await db.saveHostedCheckout({
           reference: created.paymentReference,
-          checkoutUrl: initialized.authorizationUrl,
+          checkoutUrl: started.authorizationUrl,
+          stripeSessionId: started.stripeSessionId,
         });
         if (!saved) throw new Error("Checkout is no longer pending.");
-        return { orderReference: created.order.reference, reference: initialized.reference, authorizationUrl: initialized.authorizationUrl };
+        return { orderReference: created.order.reference, reference: created.paymentReference, authorizationUrl: started.authorizationUrl };
       } catch (error) {
         // A timeout may leave a provider transaction behind. Keep stock reserved
         // and require verification/reconciliation; never create a second order.
-        console.warn("[Paystack] Could not confirm hosted checkout:", error instanceof Error ? error.message : "unknown error");
+        console.warn(`[${PAYMENT_PROVIDER_LABELS[created.provider]}] Could not confirm hosted checkout:`, error instanceof Error ? error.message : "unknown error");
         throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Checkout could not be confirmed yet. Your order remains pending; retry the same checkout or contact support before submitting another order." });
       }
     }),
@@ -181,22 +185,23 @@ export const appRouter = router({
       if (record.payment.status === "succeeded") throw new TRPCError({ code: "CONFLICT", message: "Payment status needs manual review." });
       if (record.payment.status !== "pending") return { status: "failed" as const, orderReference: record.order.reference };
 
-      let transaction;
+      const { provider, stripeSessionId } = db.paymentProviderOf(record);
+      let check;
       try {
-        transaction = await verifyPaystackTransaction(input.reference);
+        check = await checkProviderPayment({ reference: record.payment.reference, provider, stripeSessionId });
       } catch {
         throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Payment status is not available yet. Please try again shortly." });
       }
-      const outcome = classifyPaystackTransaction(transaction, record.payment.reference);
+      const outcome = check.outcome;
       if (outcome === "mismatch") {
-        throw new TRPCError({ code: "BAD_GATEWAY", message: "Paystack returned a transaction that does not match this order." });
+        throw new TRPCError({ code: "BAD_GATEWAY", message: `${PAYMENT_PROVIDER_LABELS[provider]} returned a transaction that does not match this order.` });
       }
-      if (outcome === "success") {
+      if (check.outcome === "success") {
         const result = await db.markPaymentSucceeded({
           reference: record.payment.reference,
-          amountKobo: transaction.amount,
-          currency: transaction.currency,
-          providerTransactionId: String(transaction.id),
+          amountKobo: check.amountKobo,
+          currency: check.currency,
+          providerTransactionId: check.providerTransactionId,
         });
         if (!result.success) {
           const currentStatus = await rereadCustomerPaymentStatus(ctx.user.id, record.payment.reference);
@@ -389,22 +394,24 @@ export const appRouter = router({
         throw new TRPCError({ code: "CONFLICT", message: "This payment is no longer pending and needs manual review." });
       }
 
-      let transaction;
+      const { provider, stripeSessionId } = db.paymentProviderOf(record);
+      const label = PAYMENT_PROVIDER_LABELS[provider];
+      let check;
       try {
-        transaction = await verifyPaystackTransaction(record.payment.reference);
+        check = await checkProviderPayment({ reference: record.payment.reference, provider, stripeSessionId });
       } catch {
-        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Paystack status could not be retrieved. No payment or inventory state was changed." });
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: `${label} status could not be retrieved. No payment or inventory state was changed.` });
       }
-      const outcome = classifyPaystackTransaction(transaction, record.payment.reference);
+      const outcome = check.outcome;
       if (outcome === "mismatch") {
-        throw new TRPCError({ code: "CONFLICT", message: "Paystack reference, amount or NGN currency does not match. No state was changed; escalate this payment for review." });
+        throw new TRPCError({ code: "CONFLICT", message: `${label} reference, amount or NGN currency does not match. No state was changed; escalate this payment for review.` });
       }
-      if (outcome === "success") {
+      if (check.outcome === "success") {
         const result = await db.markPaymentSucceeded({
           reference: record.payment.reference,
-          amountKobo: transaction.amount,
-          currency: transaction.currency,
-          providerTransactionId: String(transaction.id),
+          amountKobo: check.amountKobo,
+          currency: check.currency,
+          providerTransactionId: check.providerTransactionId,
           actorUserId: ctx.user.id,
         });
         if (!result.success) {

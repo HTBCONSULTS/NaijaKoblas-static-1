@@ -195,7 +195,7 @@ export function ProductCard({ product }: { product: Product }) {
 export function TrustStrip() {
   const items: Array<[LucideIcon, string, string]> = [
     [ShieldCheck, "Verified Makers", "Curated and reviewed leather products"],
-    [Lock, "Secure Payment", "Card, transfer or USSD via Paystack"],
+    [Lock, "Secure Payment", "Secure card payment via Stripe"],
     [Truck, "Tracked Delivery", "Follow your order from purchase to delivery"],
   ];
   return <section className="container-wide nk-trust" aria-label="Why shop with NaijaKoblas">{items.map(([Icon, title, copy]) => <div className="nk-trust-item" key={title}><Icon size={28} aria-hidden="true" /><div><h3>{title}</h3><p>{copy}</p></div></div>)}</section>;
